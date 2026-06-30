@@ -26,11 +26,11 @@ The system SHALL report Paperclip usage by company, project, staff role, and tas
 - **THEN** the report includes unknown buckets and enough coverage metrics to identify which metadata is missing
 
 ### Requirement: Report Usage By Task And Session
-The system SHALL produce reports ranking tasks and individual sessions by usage impact.
+The system SHALL produce reports ranking tasks and individual sessions by observed usage impact.
 
 #### Scenario: Task/session summary requested
 - **WHEN** the user requests a task or session report
-- **THEN** the output includes tokens, estimated credits, estimated cost, quota percentage, client, project, model, outcome classification, and evidence links for each task or session
+- **THEN** the output includes tokens, optional estimated credits, directional rate-card cost, observed share, client, project, model, outcome evidence bucket, and evidence links for each task or session
 
 ### Requirement: Report Usage Over Time
 The system SHALL summarize observed usage by configurable time bucket.

@@ -14,7 +14,7 @@
 
 - [x] 3.1 Build compact dark layout matching the final mockup regions
 - [x] 3.2 Implement filters, active chips, reset, export, and permalink controls
-- [x] 3.3 Implement KPI summaries, charts, waste drivers, coverage, cleanup projection, and ranked comparisons
+- [x] 3.3 Implement KPI summaries, charts, review candidates, coverage, cleanup projection, and ranked comparisons
 - [x] 3.4 Implement sortable session table and evidence drawer
 - [x] 3.5 Add responsive and accessibility states
 

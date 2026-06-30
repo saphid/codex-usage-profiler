@@ -12,14 +12,14 @@ The system SHALL serve a local web dashboard for a selected profiler JSON report
 - **THEN** the dashboard is reachable from localhost and from the machine's network or Tailscale IP
 
 ### Requirement: Dashboard User Stories
-The dashboard SHALL implement controls and panels that map to the documented user stories for quota burn, spend attribution, value inspection, waste detection, export, and accessibility.
+The dashboard SHALL implement controls and panels that map to the documented user stories for quota burn, spend attribution, value-evidence inspection, review-candidate detection, export, and accessibility.
 
 #### Scenario: User story coverage
 - **WHEN** a maintainer reviews the OpenSpec design
 - **THEN** every visible dashboard control and panel has a corresponding user story mapping
 
 ### Requirement: Summary Metrics
-The dashboard SHALL show summary metrics for session count, tokens, estimated cost, quota percentage, useful spend, and waste spend for the currently filtered sessions.
+The dashboard SHALL show summary metrics for session count, tokens, directional rate-card cost, live quota telemetry, durable-output evidence, and review-candidate evidence for the currently filtered sessions.
 
 #### Scenario: Filtered metric refresh
 - **WHEN** the user changes a filter
@@ -36,27 +36,27 @@ The dashboard SHALL distinguish observed local usage, directional rate-card cost
 - **AND** cleanup projection uses de-duplicated sessions across overlapping review-candidate findings
 
 ### Requirement: Investigation Filters
-The dashboard SHALL support filtering by date preset, text search, client/tool, project, Paperclip company, Paperclip staff, task, model, outcome, waste pattern, attribution confidence, and time of day.
+The dashboard SHALL support filtering by date preset, text search, client/tool, project, Paperclip company, Paperclip staff, task, model, outcome, review pattern, attribution confidence, and time of day.
 
 #### Scenario: Apply multiple filters
 - **WHEN** the user selects a project, staff member, outcome, and overnight time window
 - **THEN** charts, metrics, table rows, exports, and evidence selection are constrained to sessions matching all selected filters
 
 ### Requirement: Usage Visualizations
-The dashboard SHALL visualize usage through an hourly timeline, day/hour heatmap, ranked comparisons, spend flow, waste drivers, attribution coverage, and cleanup projection.
+The dashboard SHALL visualize usage through an hourly timeline, day/hour heatmap, ranked comparisons, spend flow, review candidates, attribution coverage, and cleanup projection.
 
 #### Scenario: Visualize filtered usage
 - **WHEN** the user filters to one client or project
 - **THEN** each visualization redraws using only that filtered subset
 
 #### Scenario: Reversible chart filtering
-- **WHEN** the user clicks an interactive dashboard item such as a useful/waste KPI, flow node, flow band, timeline hour, heatmap cell, waste driver, coverage bucket, projection action, or outcome pill
+- **WHEN** the user clicks an interactive dashboard item such as a durable-output/review-candidate KPI, flow node, flow band, timeline hour, heatmap cell, review-candidate row, coverage bucket, projection action, or outcome pill
 - **THEN** the dashboard applies that item's filter, marks the item active, and preserves the filter in the permalink
 - **AND WHEN** the user clicks the active item again
 - **THEN** the dashboard clears only that item's filter and returns the affected panel toward its default scope without clearing unrelated filters
 
 ### Requirement: Session Table And Evidence Drawer
-The dashboard SHALL provide a sortable compact session table and a session evidence drawer showing attribution, token/cost estimates, outcome, waste pattern, edits, tests, command labels, and linked identifiers when available.
+The dashboard SHALL provide a sortable compact session table and a session evidence drawer showing attribution, token/rate-card cost estimates, outcome, review pattern, edits, tests, command labels, and linked identifiers when available.
 
 #### Scenario: Inspect session
 - **WHEN** the user selects a session row
@@ -67,7 +67,7 @@ The dashboard SHALL allow exporting filtered sessions and copying a permalink th
 
 #### Scenario: Export filtered CSV
 - **WHEN** the user applies filters and activates CSV export
-- **THEN** the exported CSV contains only the filtered sessions and includes client, project, staff, task, model, tokens, cost, outcome, waste pattern, and confidence columns
+- **THEN** the exported CSV contains only the filtered sessions and includes client, project, staff, task, model, tokens, rate-card cost, outcome, review pattern, and confidence columns
 
 ### Requirement: Accessibility And Responsive Layout
 The dashboard SHALL provide keyboard-accessible controls, visible focus states, semantic labels, sufficient dark-mode contrast, a skip link, and responsive layout for narrow screens.

@@ -23,11 +23,11 @@ The system SHALL estimate effective cost from credits using configured purchased
 - **THEN** reports omit dollar totals or mark them as unknown while still showing tokens and credits
 
 ### Requirement: Estimate Quota Percentage
-The system SHALL report quota percentage using the best available confidence tier.
+The system SHALL report live quota telemetry and observed local usage shares using the best available confidence tier.
 
 #### Scenario: CodexBar live usage available
 - **WHEN** CodexBar live usage returns current quota windows
-- **THEN** reports show exact current 5-hour, weekly, and model-specific quota percentages with reset times
+- **THEN** reports show exact current 5-hour, weekly, and model-specific quota telemetry with reset times
 
 #### Scenario: Local logs only
 - **WHEN** no account usage snapshots are provided

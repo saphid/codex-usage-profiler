@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "codex-usage-profiler"
 version = "0.1.0"
-description = "Local Codex session, quota, cost, and usefulness profiler."
+description = "Local Codex session usage, rate-card cost, and review-candidate profiler."
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }

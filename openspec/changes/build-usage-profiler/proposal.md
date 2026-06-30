@@ -1,15 +1,15 @@
 ## Why
 
-Alex uses multiple AI coding harnesses against one Codex subscription, but current logs are scattered and hard to compare. A local profiler can turn existing session logs into practical quota, cost, and waste signals while labeling whether each number is exact, calibrated, or estimated.
+Alex uses multiple AI coding harnesses against one Codex subscription, but current logs are scattered and hard to compare. A local profiler can turn existing session logs into practical observed-usage, rate-card cost, live quota, and review-candidate signals while labeling whether each number is exact, observed, or estimated.
 
 ## What Changes
 
 - Add a small local CLI that discovers Codex session logs and extracts session metadata, token usage, model, working directory, and tool activity.
 - Attribute each session to a likely client such as Codex CLI, Codex app, Pi Coding Agent, Cursor, or unknown using prompt fingerprints, paths, process/context clues, and configurable rules.
 - Group usage by client, project, task/end goal, session, model, and time bucket.
-- Estimate credits, effective cost, and quota percentage using a versioned rate card and optional usage-dashboard or credit-balance snapshots.
+- Estimate directional rate-card cost and live quota telemetry using a versioned rate card, CodexBar data, and optional configured credit conversion.
 - Map sessions to likely tasks and end goals using local evidence such as prompts, cwd, branch, OpenSpec task references, issue IDs, edits, tests, commits, and final status.
-- Detect repeated low-value patterns such as no-op automation, retry loops, repeated indexing, repeated MCP queries, startup-heavy sessions, and test loops without code changes.
+- Detect repeated low-value review candidates such as no-op automation, repeated command signatures, repeated indexing, repeated MCP queries, startup-heavy sessions, and test loops without code changes.
 - Produce human-readable reports plus machine-readable JSON for follow-up analysis.
 - Add a rule-friendly internal event/session model so later inefficient-workflow detectors can reuse parsed logs.
 
@@ -20,8 +20,8 @@ Alex uses multiple AI coding harnesses against one Codex subscription, but curre
 - `session-log-ingest`: Discover and parse Codex session logs from local filesystem sources into normalized session records.
 - `usage-attribution`: Attribute normalized sessions to likely client and project labels with confidence and evidence.
 - `usage-reporting`: Summarize comparative usage by client, project, model, time, and session activity.
-- `quota-cost-estimation`: Estimate credits, cost, and quota percentage with confidence tiers.
-- `outcome-value-analysis`: Connect sessions to tasks/end goals and surface low-value repeated-work candidates.
+- `quota-cost-estimation`: Estimate rate-card cost, optional credits, observed share, and live quota telemetry with confidence tiers.
+- `outcome-value-analysis`: Connect sessions to tasks/end goals and surface repeated-work review candidates.
 - `codexbar-telemetry-ingest`: Import CodexBar live usage, historical quota snapshots, local cost scans, and model pricing caches as calibration data.
 
 ### Modified Capabilities

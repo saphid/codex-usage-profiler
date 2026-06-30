@@ -21,8 +21,10 @@ It is not an official billing, quota, or productivity system. Cost values are di
 ```bash
 git clone https://github.com/saphid/codex-usage-profiler.git
 cd codex-usage-profiler
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install --upgrade pip
 python3 -m pip install -e .
-npm install
 
 codex-usage-dashboard --report samples/demo-report.json
 ```
@@ -125,11 +127,13 @@ flowchart LR
 
 ```bash
 PYTHONPATH=src python3 -m unittest discover -q
+npm install
 npm test
 openspec validate add-session-dashboard-ui --strict
+openspec validate build-usage-profiler --strict
 ```
 
-The E2E dashboard test launches a local server with synthetic data, drives the browser through filters/charts/drawer/export, and saves a screenshot under `reports/`.
+The E2E dashboard test launches a local server with synthetic data, drives the browser through filters/charts/drawer/export, and saves a screenshot under `reports/`. It uses Google Chrome or Chromium; set `CUP_E2E_CHROME=/path/to/chrome` if your browser is somewhere unusual.
 
 ## Limitations
 

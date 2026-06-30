@@ -1,6 +1,6 @@
 ## Context
 
-The profiler can ingest Codex logs, CodexBar telemetry, Paperclip metadata, pricing/quota estimates, outcome markers, and waste findings. Current output is text or JSON, which is good for automation but weak for quick investigation.
+The profiler can ingest Codex logs, CodexBar telemetry, Paperclip metadata, rate-card cost context, outcome markers, and review-candidate findings. Current output is text or JSON, which is good for automation but weak for quick investigation.
 
 Imagegen exploration produced five compact dark dashboard concepts plus a final synthesized mockup. The final target is stored at `docs/mockups/dashboard-final.png`, with source variants at `docs/mockups/dashboard-v1.png` through `dashboard-v5.png`.
 
@@ -11,9 +11,9 @@ Imagegen exploration produced five compact dark dashboard concepts plus a final 
 - Serve a local dashboard from a profiler JSON report.
 - Show high-density visual insight without hiding the session evidence.
 - Map every visible control or panel to a user story.
-- Support filtering by date/time, client/tool, project, Paperclip company/staff/task, model, outcome, waste pattern, confidence, and text search.
-- Estimate cost and quota percentage from available report telemetry.
-- Make waste/value inspection practical through session rows and an evidence drawer.
+- Support filtering by date/time, client/tool, project, Paperclip company/staff/task, model, outcome, review pattern, confidence, and text search.
+- Show directional rate-card cost and live quota telemetry from available report data.
+- Make review/value-evidence inspection practical through session rows and an evidence drawer.
 - Work over localhost and a Tailscale IP when bound to `0.0.0.0`.
 - Provide unit/integration tests for UI data behavior and HTTP serving.
 
@@ -29,10 +29,10 @@ Imagegen exploration produced five compact dark dashboard concepts plus a final 
 | User story | UI elements |
 | --- | --- |
 | Isolate sudden quota burn | date preset, overnight preset, hourly timeline, brush summary, day/hour heatmap |
-| Understand quota impact | KPI strip for sessions, tokens, estimated cost, quota used, useful spend, waste spend |
+| Understand usage impact | KPI strip for sessions, tokens, rate-card cost, live quota, durable output, review candidates |
 | Find source of spend | filter rail, ranked bars, spend flow, active filter chips |
 | Compare tools/projects/staff | client/project/staff rankings and spend flow columns |
-| Detect low-value repeated work | waste-pattern filter, top waste drivers, cleanup projection |
+| Detect low-value repeated work | review-pattern filter, top review candidates, cleanup projection |
 | Inspect value by session | sortable session table, selected row, right evidence drawer |
 | Identify attribution gaps | attribution coverage panel and unknown buckets |
 | Share/export investigations | CSV export, JSON export/permalink state |
@@ -80,5 +80,5 @@ Alternative: always show raw prompt context. Rejected because logs can contain s
 
 ## Open Questions
 
-- Whether future versions should persist manual usefulness labels back to a local sidecar file.
+- Whether future versions should persist manual value-review labels back to a local sidecar file.
 - Whether to add a dedicated report schema version once more dashboard-specific fields are needed.

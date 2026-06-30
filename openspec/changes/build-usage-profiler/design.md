@@ -2,7 +2,7 @@
 
 Codex Desktop writes JSONL session logs under `/Users/saphid/.codex/sessions/YYYY/MM/DD/` and older files under `/Users/saphid/.codex/archived_sessions/`. Observed records include `session_meta`, `turn_context`, `response_item`, and `event_msg`. Session metadata carries `source`, `originator`, `thread_source`, `cwd`, `cli_version`, and IDs. Turn context carries model, cwd, workspace roots, date, timezone, and sandbox settings. Response info carries cumulative `total_token_usage` with input, cached input, output, reasoning output, and total token counts.
 
-The first design treated quota and value as out of scope. That is the main issue: Alex wants to know which tool, project, task, and session consumed tokens, credits, cost, and subscription allowance, then compare that against evidence of useful outcome. The profiler should be an agent waste profiler, not just a token dashboard.
+The first design treated quota and value evidence as out of scope. That is the main issue: Alex wants to know which tool, project, task, and session consumed tokens and directional cost, then compare that against durable-output and review-candidate evidence. The profiler should be an agent usage investigation tool, not just a token dashboard.
 
 Paperclip stores additional per-company and per-agent Codex homes under `~/.paperclip/instances/default/companies/*/.../codex-home/`. Those logs are the largest observed local usage source and need first-class discovery. Paperclip also leaves useful attribution context in company/agent instruction files and project task files, so the profiler can map many sessions to company, staff role, project, and sometimes explicit task IDs.
 
@@ -27,16 +27,16 @@ Observed CLI outputs:
 **Goals:**
 
 - Build a fast read-only profiler for local Codex JSONL session files and CodexBar telemetry.
-- Normalize sessions into stable records: identity, time range, client, project, task, model, token totals, credit estimate, cost estimate, tool counts, and attribution evidence.
+- Normalize sessions into stable records: identity, time range, client, project, task, model, token totals, optional credit estimate, rate-card cost estimate, tool counts, and attribution evidence.
 - Report usage by client, project, task, session, model, day/hour, and thread source.
-- Estimate quota pressure as percentages with confidence levels:
+- Report usage pressure with confidence levels:
   - observed usage share inside the scanned logs
-  - estimated credit/cost share from token-based Codex rates
+  - directional rate-card cost from token-based Codex rates
   - exact current quota windows from CodexBar usage output when available
-  - calibrated historical subscription-quota share from CodexBar history, usage-dashboard, or credit-balance snapshots
+  - calibrated historical subscription-quota share only when matching reset windows can be proven
 - Map sessions to end goals using local evidence: first user request, thread title/source, cwd, branch, OpenSpec change/task references, issue IDs, commits, file edits, tests, PR actions, calendar/mail/external writes, and final status.
 - Attribute Paperclip sessions to company, project, staff/agent role, and task/issue ID when evidence is present in codex-home paths, agent instructions, project files, or first request fields.
-- Detect low-value/repeated-work patterns using objective evidence before any subjective usefulness score.
+- Detect low-value/repeated-work patterns using objective evidence before any subjective value score.
 
 **Non-Goals:**
 
@@ -56,9 +56,9 @@ Observed CLI outputs:
    Rationale: JSONL contains local session tokens and task evidence. CodexBar already knows how to fetch current Codex quota windows, parse local Codex/Pi cost usage, cache model pricing, and store historical usage snapshots. Account usage state is needed for actual subscription percentage because other agentic features and server-side metering can affect limits. The design supports these accuracy tiers:
 
    - `observed`: percent of scanned local usage
-   - `estimated`: token usage converted to credits/cost using configured rate card
+   - `estimated`: token usage converted to rate-card cost and optional credits using configured rate card
    - `exact_current`: current quota windows from CodexBar/OAuth/CLI RPC
-   - `calibrated`: estimated sessions reconciled to CodexBar history, usage snapshots, or credit-balance deltas
+   - `calibrated`: estimated sessions reconciled to matching CodexBar history, usage snapshots, or credit-balance deltas; deferred until implemented safely
 
 3. Use CodexBar CLI before reading private cache internals.
 
@@ -68,21 +68,21 @@ Observed CLI outputs:
 
    Rationale: `payload.info.total_token_usage` is cumulative within a session. Taking the latest/greatest snapshot avoids double counting. Per-turn deltas can be derived later for intra-session timelines.
 
-5. Convert tokens to credits through a versioned local rate card, preferring CodexBar pricing cache when present.
+5. Convert tokens to directional rate-card cost through a versioned local rate card, preferring CodexBar pricing cache when present.
 
    Rationale: Codex flexible pricing is token-based for most current plans. Store model rates with `effective_date`, `source_url`, and token-type prices. Formula:
 
-   `credits = input_tokens / 1_000_000 * input_rate + cached_input_tokens / 1_000_000 * cached_input_rate + output_tokens / 1_000_000 * output_rate`
+   `rate_card_cost = input_tokens / 1_000_000 * input_rate + cached_input_tokens / 1_000_000 * cached_input_rate + output_tokens / 1_000_000 * output_rate`
 
-   If a model is research preview or unknown, report tokens and mark credits/cost as unknown unless the user config supplies rates.
+   If a model is research preview or unknown, report tokens and mark cost/credits as unknown unless the user config supplies rates.
 
 6. Separate credits, cost, and subscription quota.
 
    Rationale: They answer different questions.
 
-   - credits: Codex usage unit from token mix
-   - cost: estimated dollars from purchased-credit value or configured exchange rate
-   - quota percentage: observed/calibrated share of allowance window
+   - credits: optional Codex usage unit from token mix when conversion is configured
+   - cost: directional rate-card replacement-cost estimate
+   - quota telemetry: live/current window when imported; historical allocation is deferred until calibrated
 
    For included Plus/Pro plan usage, cost is best shown as effective allocation of monthly plan price or replacement-credit estimate, not official bill.
 
@@ -108,11 +108,11 @@ Observed CLI outputs:
 
    When task IDs are absent, the report should say attribution is unknown rather than guessing from unrelated filenames.
 
-9. Score usefulness from outcomes and waste patterns, not vibes.
+9. Score evidence from outcomes and review-candidate patterns, not vibes.
 
-   Rationale: "Was it useful?" is subjective, but useless repeated tasks leave traces. The MVP should classify sessions into evidence buckets:
+   Rationale: "Was it useful?" is subjective, but repeated low-value tasks leave traces. The MVP should classify sessions into evidence buckets:
 
-   - `productive`: edits, commits, PRs, tests fixed, external action completed, artifact created
+   - `durable-output`: edits, commits, PRs, tests fixed, external action completed, artifact created
    - `exploratory`: meaningful reads/searches/design without edits
    - `blocked`: ended with blocker/error/needs user input
    - `no-op`: little activity and no durable output
@@ -154,7 +154,7 @@ quota snaps ──────┘                             usage + evidence m
   - `observed_share`: percent of scanned logs only
   - `unknown`: missing rates or missing token data
 
-## Waste Pattern Model
+## Review Candidate Pattern Model
 
 Initial detectors should be deterministic:
 

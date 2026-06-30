@@ -1452,7 +1452,7 @@
     var saved = wasteCost * reduction / 100;
     var totalCost = summarize(sessions, report).cost;
     container.appendChild(el("strong", {}, [formatCost(saved)]));
-    container.appendChild(el("div", {}, [el("span", {}, ["Projected saved"]), el("span", {}, [reduction + "% of unique top-driver sessions"])]));
+    container.appendChild(el("div", {}, [el("span", {}, ["Possible reduction"]), el("span", {}, [reduction + "% of unique top-driver sessions"])]));
     container.appendChild(el("div", {}, [el("span", {}, ["Remaining candidate cost"]), el("span", {}, [formatCost(Math.max(0, wasteCost - saved))])]));
     container.appendChild(el("div", {}, [el("span", {}, ["Unique sessions"]), el("span", {}, [formatNumber(selected.length)])]));
     container.appendChild(el("div", {}, [el("span", {}, ["Share of filtered cost"]), el("span", {}, [formatPercent(totalCost ? saved / totalCost * 100 : 0)])]));
