@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Codex Usage Profiler</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to main content</a>
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">C</span>
+        <h1>Codex Usage Profiler</h1>
+        <button id="source-status" class="source-pill source-button" type="button" data-info="source" aria-label="About data source">Loading report...</button>
+        <span id="live-status" class="live-status"><span aria-hidden="true"></span>Loading</span>
+      </div>
+      <form class="command-row" id="quick-form" aria-label="Global dashboard controls">
+        <label class="search-box">
+          <span class="sr-only">Search sessions projects staff and tasks</span>
+          <input id="search-input" data-testid="search-input" type="search" placeholder="Search sessions, projects, staff, tasks">
+        </label>
+        <label class="inline-control">
+          <span class="calendar-icon" aria-hidden="true">[]</span>
+          <span class="sr-only">Date range</span>
+          <select id="date-preset" data-testid="date-preset">
+            <option value="all">All sessions</option>
+            <option value="last24">Last 24h</option>
+            <option value="last7">Last 7d</option>
+            <option value="overnight">Overnight</option>
+          </select>
+        </label>
+        <label class="inline-check switch-control">
+          <span>Compare</span>
+          <input id="compare-mode" type="checkbox">
+          <span class="switch-track" aria-hidden="true"></span>
+        </label>
+        <button id="export-csv" data-testid="export-csv" type="button">Export CSV</button>
+        <button id="copy-link" data-testid="copy-link" type="button">Permalink</button>
+        <button id="more-menu" type="button" aria-label="More dashboard actions" aria-expanded="false">...</button>
+        <button id="show-filters" class="show-filters" type="button">Show filters</button>
+      </form>
+    </header>
+
+    <div class="app-shell">
+      <aside class="filter-rail" aria-label="Filters">
+        <div class="rail-heading">
+          <h2>Filters</h2>
+          <button id="hide-filters" type="button" aria-label="Hide filters">Hide</button>
+        </div>
+        <form id="filter-form" class="filter-form">
+          <label>
+            <span>Client / Tool</span>
+            <select id="client-filter" data-testid="client-filter"></select>
+          </label>
+          <label>
+            <span>Project</span>
+            <select id="project-filter" data-testid="project-filter"></select>
+          </label>
+          <label>
+            <span>Paperclip Company</span>
+            <select id="company-filter" data-testid="company-filter"></select>
+          </label>
+          <label>
+            <span>Staff</span>
+            <select id="staff-filter" data-testid="staff-filter"></select>
+          </label>
+          <label>
+            <span>Task</span>
+            <select id="task-filter" data-testid="task-filter"></select>
+          </label>
+          <label>
+            <span>Model</span>
+            <select id="model-filter" data-testid="model-filter"></select>
+          </label>
+          <label>
+            <span>Outcome</span>
+            <select id="outcome-filter" data-testid="outcome-filter"></select>
+          </label>
+          <label>
+            <span>Waste Pattern</span>
+            <select id="waste-filter" data-testid="waste-filter">
+              <option value="all">All patterns</option>
+              <option value="any">Any review signal</option>
+              <option value="retry">Repeated commands / rework</option>
+              <option value="no-edit">No durable output</option>
+              <option value="test-loop">Test loop</option>
+              <option value="indexing">Repository indexing</option>
+              <option value="startup">Startup/context bloat</option>
+              <option value="useful-only">Durable output only</option>
+              <option value="unknown-attribution">Unknown attribution</option>
+            </select>
+          </label>
+          <label>
+            <span>Minimum Confidence <output id="confidence-value">0%</output></span>
+            <input id="confidence-filter" data-testid="confidence-filter" type="range" min="0" max="100" step="25" value="0">
+          </label>
+          <fieldset class="time-segments">
+            <legend>Time of Day</legend>
+            <input id="hour-start" type="hidden">
+            <input id="hour-end" type="hidden">
+            <button class="time-button active" data-time-preset="all" type="button">All</button>
+            <button class="time-button" data-time-preset="day" type="button">Day (6a-6p)</button>
+            <button class="time-button" data-time-preset="night" type="button">Night (6p-6a)</button>
+          </fieldset>
+        </form>
+        <div class="active-filters">
+          <div class="active-head">
+            <h3 id="active-title">Active filters</h3>
+            <button id="clear-active" type="button">Clear all</button>
+          </div>
+          <div id="active-chips" data-testid="active-chips" class="chip-list"></div>
+        </div>
+        <button id="reset-filters" data-testid="reset-filters" class="reset-wide" type="button">Reset filters</button>
+        <div class="rail-footer">
+          <p class="version">v1.4.0</p>
+          <a href="/api/report" target="_blank" rel="noreferrer">Guide</a>
+        </div>
+      </aside>
+
+      <main id="main" class="dashboard" tabindex="-1">
+        <section class="kpi-strip" id="kpi-strip" aria-label="Summary metrics"></section>
+        <section class="main-grid" aria-label="Usage visualizations">
+          <article class="panel wide" data-testid="spend-flow">
+            <div class="panel-head">
+              <div>
+                <h2>Spend Flow <button class="info-button" type="button" data-info="spend-flow" aria-label="About Spend Flow">i</button></h2>
+                <p class="panel-sub">Client -&gt; Project -&gt; Staff -&gt; Outcome</p>
+              </div>
+              <label class="metric-toggle segmented-select">
+                <span>View as</span>
+                <select id="metric-toggle" data-testid="metric-toggle">
+                  <option value="cost">Cost</option>
+                  <option value="tokens">Tokens</option>
+                </select>
+              </label>
+            </div>
+            <div id="spend-flow" class="flow-grid"></div>
+          </article>
+          <article class="panel wide" data-testid="hourly-chart">
+            <div class="panel-head">
+              <div>
+                <h2>Usage Over Time <span class="muted">(Hourly)</span> <button class="info-button" type="button" data-info="timeline" aria-label="About Usage Over Time">i</button></h2>
+                <div class="legend">
+                  <span class="legend-useful">Durable output</span>
+                  <span class="legend-neutral">Neutral</span>
+                  <span class="legend-waste">Review</span>
+                  <span class="legend-unknown">Unknown</span>
+                </div>
+              </div>
+              <div class="chart-actions">
+                <select id="timeline-metric" aria-label="Timeline metric">
+                  <option value="tokens">Tokens</option>
+                  <option value="cost">Cost</option>
+                </select>
+                <button id="timeline-menu" type="button" aria-label="Timeline options">...</button>
+              </div>
+            </div>
+            <div id="hourly-chart" class="timeline" aria-label="Hourly usage chart"></div>
+            <div class="brush-wrap">
+              <div id="mini-brush" class="mini-brush" aria-label="Mini usage overview"></div>
+              <div id="brush-selection" class="brush-selection" role="slider" aria-label="Selected time range" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100" tabindex="0"></div>
+            </div>
+            <p id="brush-summary" class="brush-summary muted"></p>
+          </article>
+          <article class="panel" data-testid="heatmap">
+            <div class="panel-head">
+              <h2>Usage Heatmap <span class="muted">(Tokens)</span> <button class="info-button" type="button" data-info="heatmap" aria-label="About Usage Heatmap">i</button></h2>
+            </div>
+            <div id="heatmap" class="heatmap" aria-label="Usage by day and hour"></div>
+            <div class="heat-legend"><span>Lower</span><span></span><span>Higher</span></div>
+          </article>
+          <article class="panel" data-testid="waste-drivers">
+            <div class="panel-head">
+              <h2>Top Review Candidates <button class="info-button" type="button" data-info="waste-drivers" aria-label="About Top Review Candidates">i</button></h2>
+            </div>
+            <div class="driver-header"><span>Pattern</span><span>Sessions</span><span>Candidate Cost</span></div>
+            <div id="waste-drivers" class="driver-list"></div>
+            <a class="panel-link" href="#session-table">View all review candidates</a>
+          </article>
+          <article class="panel" data-testid="coverage-chart">
+            <div class="panel-head">
+              <h2>Attribution Coverage <button class="info-button" type="button" data-info="coverage" aria-label="About Attribution Coverage">i</button></h2>
+            </div>
+            <div id="coverage-chart" class="coverage"></div>
+            <a class="panel-link" href="#session-table">View unknown buckets</a>
+          </article>
+          <article class="panel" data-testid="cleanup-projection">
+            <div class="panel-head">
+              <h2>Cleanup Projection <button class="info-button" type="button" data-info="projection" aria-label="About Cleanup Projection">i</button></h2>
+              <label>
+                <span class="sr-only">Reduction percentage</span>
+                <select id="reduction-select">
+                  <option value="25">25%</option>
+                  <option value="50" selected>50%</option>
+                  <option value="75">75%</option>
+                </select>
+              </label>
+            </div>
+            <div id="cleanup-projection" class="projection"></div>
+            <a class="panel-link" href="#waste-drivers">How projection is calculated</a>
+          </article>
+        </section>
+        <section class="session-panel" aria-label="Sessions">
+          <div class="panel-head">
+            <h2 id="session-count">Sessions <button class="info-button" type="button" data-info="sessions" aria-label="About Sessions table">i</button></h2>
+            <div class="table-actions">
+              <button type="button" id="column-chooser" aria-expanded="false">Column chooser</button>
+              <label>
+                <span>Density</span>
+                <select id="density-select">
+                  <option value="compact">Compact</option>
+                  <option value="comfortable">Comfortable</option>
+                </select>
+              </label>
+              <span id="page-range" class="muted">1-50</span>
+              <button id="prev-page" type="button" aria-label="Previous page">&lt;</button>
+              <button id="current-page" type="button" class="page-active" aria-label="Page 1">1</button>
+              <button id="next-page" type="button" aria-label="Next page">&gt;</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table id="session-table" data-testid="session-table">
+              <caption class="sr-only">Filtered Codex sessions</caption>
+              <thead></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+
+      <aside id="evidence-drawer" data-testid="evidence-drawer" class="evidence-drawer" aria-label="Session details" aria-live="polite">
+        <div class="panel-head">
+          <h2><span class="drawer-mark" aria-hidden="true">C</span> Session Details</h2>
+          <button id="close-drawer" type="button">Close</button>
+        </div>
+        <div id="drawer-content" class="drawer-content">
+          <p class="muted">Select a session to inspect structured evidence.</p>
+        </div>
+      </aside>
+    </div>
+    <footer class="status-footer">
+      <span><span class="ok-dot" aria-hidden="true"></span> Data fresh as of 2m ago</span>
+      <button type="button" onclick="location.reload()">Refresh</button>
+      <button class="info-button plain-info" type="button" data-info="notifications" aria-label="Notifications">Bell</button>
+      <button class="info-button plain-info" type="button" data-info="settings" aria-label="Settings">Settings</button>
+    </footer>
+    <div id="info-popover" class="info-popover" role="dialog" aria-modal="false" aria-labelledby="info-title" hidden>
+      <div class="panel-head">
+        <h2 id="info-title">Details</h2>
+        <button id="info-close" type="button">Close</button>
+      </div>
+      <p id="info-body"></p>
+      <div id="info-actions" class="info-actions"></div>
+    </div>
+    <div id="more-popover" class="menu-popover" hidden>
+      <button type="button" id="open-json">Open raw JSON</button>
+      <button type="button" id="copy-spec-link">Copy interaction spec path</button>
+      <button type="button" id="reset-brush">Reset brush</button>
+    </div>
+    <div id="column-popover" class="menu-popover column-popover" hidden aria-label="Column chooser"></div>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script src="/app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,16 @@
+[
+  {
+    "provider": "codex",
+    "source": "cache",
+    "updatedAt": "2026-06-30T04:00:00Z",
+    "currencyCode": "USD",
+    "last30DaysTokens": 2100,
+    "last30DaysCostUSD": 0.02,
+    "sessionTokens": 2100,
+    "sessionCostUSD": 0.02,
+    "daily": [
+      {"date": "2026-06-30", "inputTokens": 2000, "outputTokens": 100, "totalTokens": 2100, "totalCost": 0.02, "modelsUsed": ["gpt-5.5"], "modelBreakdowns": [{"modelName": "gpt-5.5", "totalTokens": 2100, "cost": 0.02}]}
+    ]
+  }
+]
+

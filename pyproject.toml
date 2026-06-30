@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "codex-usage-profiler"
+version = "0.1.0"
+description = "Local Codex session, quota, cost, and usefulness profiler."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Alex Southwell" }]
+dependencies = []
+
+[project.scripts]
+codex-usage-profiler = "codex_usage_profiler.cli:main"
+cup = "codex_usage_profiler.cli:main"
+codex-usage-dashboard = "codex_usage_profiler.dashboard:main"
+cup-dashboard = "codex_usage_profiler.dashboard:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+codex_usage_profiler = ["dashboard_static/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

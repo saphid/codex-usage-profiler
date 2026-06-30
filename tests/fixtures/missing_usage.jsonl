@@ -1,0 +1,3 @@
+{"type":"session_meta","timestamp":"2026-06-30T01:00:00Z","payload":{"session_id":"sess-missing","source":"cli","originator":"codex-tui","cwd":"/Users/saphid/projects/new_mac"}}
+{"type":"turn_context","timestamp":"2026-06-30T01:00:01Z","payload":{"model":"unknown-model","cwd":"/Users/saphid/projects/new_mac"}}
+

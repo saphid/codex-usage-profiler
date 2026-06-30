@@ -1,0 +1,18 @@
+[
+  {
+    "provider": "codex",
+    "source": "oauth",
+    "credits": {"remaining": 0, "updatedAt": "2026-06-30T04:15:12Z"},
+    "usage": {
+      "dataConfidence": "exact",
+      "loginMethod": "pro",
+      "updatedAt": "2026-06-30T04:15:12Z",
+      "primary": {"usedPercent": 13, "resetsAt": "2026-06-30T06:43:30Z", "windowMinutes": 300},
+      "secondary": {"usedPercent": 2, "resetsAt": "2026-07-07T01:43:30Z", "windowMinutes": 10080},
+      "extraRateWindows": [
+        {"id": "codex-spark", "title": "Codex Spark 5-hour", "window": {"usedPercent": 2, "resetsAt": "2026-06-30T07:12:53Z", "windowMinutes": 300}}
+      ]
+    }
+  }
+]
+

@@ -1,0 +1,21 @@
+{
+  "name": "codex-usage-profiler",
+  "version": "0.1.0",
+  "description": "Local profiler for Codex usage across harnesses, projects, tasks, and sessions.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "npm run test:e2e",
+    "test:e2e": "node tests/dashboard_e2e.mjs"
+  },
+  "keywords": ["codex", "usage", "profiler", "agentic-sdlc", "observability"],
+  "author": "Alex Southwell",
+  "license": "MIT",
+  "type": "commonjs",
+  "devDependencies": {
+    "playwright-core": "^1.61.1"
+  }
+}

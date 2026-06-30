@@ -1,0 +1,6 @@
+{"type":"session_meta","timestamp":"2026-06-30T00:00:00Z","payload":{"session_id":"sess-complete","source":"vscode","originator":"Codex Desktop","thread_source":"user","cwd":"/Users/saphid/Documents/PA-Agent","cli_version":"0.1"}}
+{"type":"turn_context","timestamp":"2026-06-30T00:00:01Z","payload":{"model":"gpt-5.5","cwd":"/Users/saphid/Documents/PA-Agent","workspace_roots":["/Users/saphid/Documents/PA-Agent"]}}
+{"type":"response_item","timestamp":"2026-06-30T00:00:02Z","payload":{"item":{"type":"message","role":"user","content":[{"type":"input_text","text":"Build a useful thing with TOKEN=secret123"}]}}}
+{"type":"response_item","timestamp":"2026-06-30T00:00:03Z","payload":{"item":{"type":"function_call","name":"functions.exec_command","arguments":"{\"cmd\":\"pytest tests\"}"},"info":{"total_token_usage":{"input_tokens":1000,"cached_input_tokens":100,"output_tokens":50,"reasoning_output_tokens":10,"total_tokens":1050}}}}
+{"type":"response_item","timestamp":"2026-06-30T00:00:04Z","payload":{"item":{"type":"function_call","name":"functions.apply_patch","arguments":"*** Begin Patch"},"info":{"total_token_usage":{"input_tokens":2000,"cached_input_tokens":500,"output_tokens":100,"reasoning_output_tokens":20,"total_tokens":2100}}}}
+
