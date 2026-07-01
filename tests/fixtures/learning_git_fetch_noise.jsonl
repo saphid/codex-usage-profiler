@@ -1,0 +1,3 @@
+{"type":"session_meta","timestamp":"2026-06-30T09:00:00Z","payload":{"session_id":"learn-git-fetch-noise","source":"vscode","originator":"Codex Desktop","thread_source":"user","cwd":"/Users/saphid/Documents/demo"}}
+{"type":"response_item","timestamp":"2026-06-30T09:00:01Z","payload":{"item":{"type":"message","role":"user","content":[{"type":"input_text","text":"Run git fetch origin and set the Authorization header on the axios client."}]}}}
+{"type":"response_item","timestamp":"2026-06-30T09:00:02Z","payload":{"item":{"type":"function_call","name":"functions.exec_command","arguments":"{\"cmd\":\"git fetch origin\"}"},"info":{"total_token_usage":{"input_tokens":1000,"cached_input_tokens":100,"output_tokens":100,"reasoning_output_tokens":0,"total_tokens":1100}}}}

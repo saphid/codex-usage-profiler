@@ -1,0 +1,2 @@
+{"type":"session_meta","timestamp":"2026-06-30T05:00:00Z","payload":{"session_id":"learn-object-role","source":"vscode","originator":"Codex Desktop","thread_source":"user","cwd":"/Users/saphid/Documents/demo"}}
+{"type":"response_item","timestamp":"2026-06-30T05:00:01Z","payload":{"item":{"type":"message","role":{"kind":"user"},"content":[{"type":"input_text","text":"This malformed role should not crash."}]}}}
