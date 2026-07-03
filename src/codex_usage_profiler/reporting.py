@@ -13,6 +13,8 @@ def render_json(
     telemetry: CodexBarTelemetry,
     reconciliation: List[Dict[str, Any]],
     warnings: List[str],
+    paperclip_spend: Optional[Dict[str, Any]] = None,
+    plan_analysis: Optional[Dict[str, Any]] = None,
     include_snippets: bool = False,
 ) -> str:
     payload = {
@@ -23,6 +25,8 @@ def render_json(
         },
         "telemetry": telemetry.to_dict(),
         "aggregates": aggregates,
+        "paperclip_spend": paperclip_spend or {},
+        "plan_analysis": plan_analysis or {},
         "findings": [item.to_dict() for item in findings],
         "reconciliation": reconciliation,
         "sessions": [record.to_dict(include_snippets=include_snippets) for record in records],
@@ -38,6 +42,8 @@ def render_text(
     telemetry: CodexBarTelemetry,
     reconciliation: List[Dict[str, Any]],
     warnings: List[str],
+    paperclip_spend: Optional[Dict[str, Any]] = None,
+    plan_analysis: Optional[Dict[str, Any]] = None,
     top: int = 10,
     include_snippets: bool = False,
 ) -> str:
@@ -51,9 +57,11 @@ def render_text(
     lines.append(f"Rate-card cost: ${total_cost:,.2f} (directional replacement-cost estimate)")
     lines.append("")
     lines.extend(_render_codexbar(telemetry))
+    lines.extend(_render_plan_analysis(plan_analysis or {}))
     lines.extend(_render_aggregate("By client", aggregates.get("client", []), top))
     lines.extend(_render_aggregate("By project", aggregates.get("project", []), top))
     lines.extend(_render_aggregate("By task", aggregates.get("task", []), min(top, 15)))
+    lines.extend(_render_paperclip_company_spend(paperclip_spend or {}, top))
     lines.extend(_render_aggregate("Paperclip companies", aggregates.get("paperclip_company", []), top))
     lines.extend(_render_aggregate("Paperclip staff", aggregates.get("paperclip_staff", []), top))
     lines.extend(_render_aggregate("Paperclip tasks", aggregates.get("paperclip_task", []), top))
@@ -116,6 +124,74 @@ def _render_aggregate(title: str, rows: List[Dict[str, Any]], top: int) -> List[
                 f"${float(row.get('estimated_cost_usd', 0.0)):,.2f}",
             )
         )
+    lines.append("")
+    return lines
+
+
+def _render_plan_analysis(plan: Dict[str, Any]) -> List[str]:
+    lines = ["Plan comparison", "---------------"]
+    if not plan:
+        return lines + ["none", ""]
+    lines.append(
+        f"Observed span: {int(plan.get('observed_span_days') or 1)}d | "
+        f"observed ${float(plan.get('observed_cost_usd') or 0.0):,.2f} | "
+        f"projected {int(plan.get('projection_days') or 30)}d ${float(plan.get('projected_cost_usd') or 0.0):,.2f}"
+    )
+    rows = plan.get("plans") if isinstance(plan.get("plans"), list) else []
+    if not rows:
+        lines.append("Add --monthly-plan-price-usd or --plan-price NAME=USD to compare plans.")
+        lines.append("")
+        return lines
+    lines.append(_fmt_row("plan", "price", "projected", "ratio", "delta"))
+    for row in rows[:8]:
+        ratio = row.get("projected_vs_price_percent")
+        lines.append(
+            _fmt_row(
+                str(row.get("plan", "plan"))[:34],
+                f"${float(row.get('monthly_price_usd') or 0.0):,.2f}",
+                f"${float(row.get('projected_rate_card_cost_usd') or 0.0):,.2f}",
+                "n/a" if ratio is None else f"{float(ratio):.0f}%",
+                f"${float(row.get('delta_usd') or 0.0):+,.2f}",
+            )
+        )
+    lines.append("")
+    return lines
+
+
+def _render_paperclip_company_spend(spend: Dict[str, Any], top: int) -> List[str]:
+    lines = ["Paperclip company spend", "-----------------------"]
+    totals = spend.get("company_totals") if isinstance(spend.get("company_totals"), list) else []
+    if not totals:
+        return lines + ["none", ""]
+    lines.append(_fmt_row("company", "sessions", "tokens", "cost", "proj30d"))
+    for row in totals[:top]:
+        lines.append(
+            _fmt_row(
+                str(row.get("company", "unknown"))[:34],
+                str(row.get("sessions", 0)),
+                f"{int(row.get('total_tokens', 0)):,}",
+                f"${float(row.get('estimated_cost_usd', 0.0)):,.2f}",
+                f"${float(row.get('projected_cost_usd', 0.0)):,.2f}",
+            )
+        )
+    daily = spend.get("daily") if isinstance(spend.get("daily"), list) else []
+    if daily:
+        lines.append("")
+        lines.append("Latest Paperclip company days")
+        lines.append(_fmt_row("day/company", "sessions", "tokens", "cost", "staff"))
+        latest = sorted(daily, key=lambda row: str(row.get("period", "")), reverse=True)[:top]
+        for row in latest:
+            staff = row.get("top_staff") if isinstance(row.get("top_staff"), dict) else {}
+            top_staff = next(iter(staff.keys()), "unknown")
+            lines.append(
+                _fmt_row(
+                    f"{row.get('period', 'unknown')} {row.get('company', 'unknown')}"[:34],
+                    str(row.get("sessions", 0)),
+                    f"{int(row.get('total_tokens', 0)):,}",
+                    f"${float(row.get('estimated_cost_usd', 0.0)):,.2f}",
+                    str(top_staff)[:12],
+                )
+            )
     lines.append("")
     return lines
 

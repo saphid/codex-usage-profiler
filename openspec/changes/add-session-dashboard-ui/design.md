@@ -58,6 +58,10 @@ Use CSS bars and inline SVG for timeline, heatmap, rankings, coverage, and spend
 
 Alternative: Chart.js/D3. Rejected for dependency weight.
 
+### Card-local resets and responsive relayout
+
+Each filterable visualization exposes a local reset button in the panel header. Active chart items still toggle off directly, but reset buttons make recovery obvious when the active item is clipped, scrolled away, or visually subtle. The Sankey/alluvial flow re-renders on viewport changes because its SVG links and DOM nodes are positioned from the container width.
+
 ### Privacy-safe evidence drawer
 
 Show structured evidence such as edits, tests, commits, PRs, commands, token counts, attribution confidence, session IDs, and local paths. Do not show raw prompts unless a report explicitly includes snippets.

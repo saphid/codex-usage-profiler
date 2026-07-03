@@ -1,0 +1,18 @@
+[Unit]
+Description=Codex Usage Profiler dashboard
+After=network-online.target
+
+[Service]
+Type=simple
+Environment=CUP_APP_HOME=%h/services/codex-usage-profiler
+Environment=CUP_STATE_HOME=%h/.local/state/codex-usage-profiler
+Environment=CUP_SYSLOG_HOST=192.168.1.30
+Environment=CUP_LOKI_URL=http://192.168.1.221:3100/loki/api/v1/push
+Environment=CUP_PORT=8775
+WorkingDirectory=%h/services/codex-usage-profiler
+ExecStart=%h/services/codex-usage-profiler/.venv/bin/codex-usage-dashboard --report %h/.local/state/codex-usage-profiler/latest-report.json --host 0.0.0.0 --port ${CUP_PORT} --syslog-host ${CUP_SYSLOG_HOST} --loki-url ${CUP_LOKI_URL}
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

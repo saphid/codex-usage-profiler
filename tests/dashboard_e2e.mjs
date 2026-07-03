@@ -169,11 +169,14 @@ async function assertFlowGeometry(page, label) {
       };
     }).filter((link) => link.sxDelta > 2 || link.txDelta > 2 || !link.syInside || !link.tyInside);
     const clippedNodes = nodes.filter((node) => node.y < 0 || node.y + node.height > flow.clientHeight + 1);
-    return { nodeCount: nodes.length, linkCount: document.querySelectorAll(".flow-link").length, stageGaps, badLinks, clippedNodes, flowHeight: flow.clientHeight };
+    const horizontalClippedNodes = nodes.filter((node) => node.x < -1 || node.x + node.width > flow.clientWidth + 1);
+    return { nodeCount: nodes.length, linkCount: document.querySelectorAll(".flow-link").length, stageGaps, badLinks, clippedNodes, horizontalClippedNodes, flowHeight: flow.clientHeight, flowWidth: flow.clientWidth };
   });
   assert.equal(result.badLinks.length, 0, `${label}: bad Sankey link endpoints ${JSON.stringify(result.badLinks.slice(0, 3))}`);
   assert.equal(result.clippedNodes.length, 0, `${label}: clipped Sankey nodes ${JSON.stringify(result.clippedNodes)}`);
-  assert(result.stageGaps.every((gap) => gap >= 20), `${label}: stage gaps too small ${JSON.stringify(result.stageGaps)}`);
+  assert.equal(result.horizontalClippedNodes.length, 0, `${label}: horizontally clipped Sankey nodes ${JSON.stringify(result.horizontalClippedNodes)}`);
+  const minGap = result.flowWidth < 520 ? 2 : 20;
+  assert(result.stageGaps.every((gap) => gap >= minGap), `${label}: stage gaps too small ${JSON.stringify(result.stageGaps)}`);
   assert(result.nodeCount > 10, `${label}: expected many flow nodes`);
   assert(result.linkCount > 10, `${label}: expected many flow links`);
 }
@@ -189,6 +192,35 @@ async function expectNoFilter(page, queryKey, label) {
   await page.waitForTimeout(100);
   const params = new URL(page.url()).searchParams;
   assert(!params.has(queryKey), `${label} did not clear ${queryKey}`);
+}
+
+async function clickCardReset(page, card, queryKey, label) {
+  const button = page.locator(`.card-reset[data-reset-card="${card}"]`);
+  await assertEnabled(page, button, `${label} reset`);
+  await button.click();
+  await expectNoFilter(page, queryKey, label);
+  await assertDisabled(page, button, `${label} reset`);
+}
+
+async function assertEnabled(page, locator, label) {
+  await page.waitForTimeout(50);
+  assert(!(await locator.isDisabled()), `${label} was disabled`);
+}
+
+async function assertDisabled(page, locator, label) {
+  await page.waitForTimeout(50);
+  assert(await locator.isDisabled(), `${label} was not disabled`);
+}
+
+async function assertNoUnexpectedOverflow(page, label) {
+  const overflow = await page.evaluate(() => {
+    const allowed = [".table-wrap", ".company-day-bars", ".timeline"];
+    return Array.from(document.querySelectorAll("body, .topbar, .brand, .dashboard, .panel, .panel-head, .heatmap, .coverage, .evidence-drawer"))
+      .filter((node) => !allowed.some((selector) => node.closest(selector)))
+      .map((node) => ({ selector: node.className || node.tagName, scrollWidth: node.scrollWidth, clientWidth: node.clientWidth }))
+      .filter((row) => row.scrollWidth > row.clientWidth + 2);
+  });
+  assert.equal(overflow.length, 0, `${label}: unexpected horizontal overflow ${JSON.stringify(overflow.slice(0, 5))}`);
 }
 
 async function run() {
@@ -210,12 +242,16 @@ async function run() {
     await page.goto(baseUrl);
     await page.waitForSelector(".flow-node");
     await assertFlowGeometry(page, "initial");
+    await assertNoUnexpectedOverflow(page, "initial 1440");
 
-    for (const size of [{ width: 1120, height: 900 }, { width: 1728, height: 1117 }, { width: 1280, height: 900 }]) {
+    for (const size of [{ width: 1120, height: 900 }, { width: 1728, height: 1117 }, { width: 1280, height: 900 }, { width: 390, height: 860 }]) {
       await page.setViewportSize(size);
       await page.waitForTimeout(100);
       await assertFlowGeometry(page, `viewport ${size.width}`);
+      await assertNoUnexpectedOverflow(page, `viewport ${size.width}`);
     }
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.waitForTimeout(100);
     await page.locator("#hide-filters").click();
     await page.locator("#close-drawer").click();
     await page.waitForTimeout(100);
@@ -281,15 +317,13 @@ async function run() {
     const clientNode = '.flow-node[data-node-id="client|Codex Desktop"]';
     await clickAndExpectFilter(page, clientNode, "clients");
     assert.equal(await page.locator(clientNode).getAttribute("aria-pressed"), "true", "active flow node was not marked pressed");
-    await page.locator(clientNode).click();
-    await expectNoFilter(page, "clients", "second flow node click");
+    await clickCardReset(page, "flow", "clients", "flow reset after node");
     await page.locator("#reset-filters").click();
     await page.waitForTimeout(100);
     await page.locator(".flow-link").first().click({ force: true });
     assert(new URL(page.url()).searchParams.has("sessionIds"), "flow link did not filter");
     assert(await page.locator(".flow-link.active").count(), "active flow link was not marked");
-    await page.locator(".flow-link.active").first().click({ force: true });
-    await expectNoFilter(page, "sessionIds", "second flow link click");
+    await clickCardReset(page, "flow", "sessionIds", "flow reset after link");
     await page.locator("#reset-filters").click();
     await page.waitForTimeout(100);
     const otherNode = page.locator('.flow-node[data-node-id="client|Other / Unknown"]');
@@ -311,39 +345,47 @@ async function run() {
       target.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, clientX: endX, clientY: y, pointerId: 1, pointerType: "mouse" }));
     }, { startX: brush.x + brush.width * 0.2, endX: brush.x + brush.width * 0.65, y: brush.y + brush.height / 2 });
     assert(new URL(page.url()).searchParams.has("brushStartTime"), "brush drag did not set range");
-    await page.locator("#reset-filters").click();
+    await clickCardReset(page, "timeline", "brushStartTime", "timeline reset after brush");
 
     await page.locator(".legend-useful").click();
     assert(await page.locator(".legend-useful.inactive").count(), "legend did not toggle");
-    await page.locator(".legend-useful").click();
+    await assertEnabled(page, page.locator('.card-reset[data-reset-card="timeline"]'), "timeline reset after legend");
+    await page.locator('.card-reset[data-reset-card="timeline"]').click();
+    assert.equal(await page.locator(".legend-useful.inactive").count(), 0, "timeline reset did not restore legend");
     await page.locator(".hour-bar").first().click();
     assert(new URL(page.url()).searchParams.has("brushStartTime"), "timeline hour did not filter");
     assert(await page.locator(".hour-bar.active").count(), "active timeline hour was not marked");
-    await page.locator(".hour-bar.active").first().click();
-    await expectNoFilter(page, "brushStartTime", "second timeline hour click");
+    await clickCardReset(page, "timeline", "brushStartTime", "timeline reset after hour");
+
+    await page.locator(".company-spend-top button").first().click();
+    assert(new URL(page.url()).searchParams.has("companies"), "company tile did not filter");
+    await clickCardReset(page, "company", "companies", "company reset after tile");
+    await page.locator(".company-day").first().click();
+    assert(new URL(page.url()).searchParams.has("brushStartTime"), "company day did not filter");
+    assert(await page.locator(".company-day.active").count(), "company day was not marked active");
+    await clickCardReset(page, "company", "brushStartTime", "company reset after day");
+
     await page.locator(".heat-cell").nth(20).click();
     assert(new URL(page.url()).searchParams.has("weekdays"), "heatmap cell did not filter");
     assert(await page.locator(".heat-cell.active").count(), "active heatmap cell was not marked");
-    await page.locator(".heat-cell.active").click();
-    await expectNoFilter(page, "weekdays", "second heatmap cell click");
+    await clickCardReset(page, "heatmap", "weekdays", "heatmap reset");
     await page.locator("#reset-filters").click();
     await page.locator(".driver-row").first().click();
     assert(new URL(page.url()).searchParams.has("wasteKind"), "waste row did not filter");
     assert(await page.locator(".driver-row.active").count(), "active waste row was not marked");
-    await page.locator(".driver-row.active").click();
-    await expectNoFilter(page, "wasteKind", "second waste row click");
+    await clickCardReset(page, "waste", "wasteKind", "waste reset");
     await page.locator("#reset-filters").click();
     await page.locator(".coverage-list button").last().click();
     assert(new URL(page.url()).searchParams.has("attributionCoverage"), "coverage row did not filter");
     assert(await page.locator(".coverage-list button.active").count(), "active coverage row was not marked");
-    await page.locator(".coverage-list button.active").click();
-    await expectNoFilter(page, "attributionCoverage", "second coverage row click");
+    await clickCardReset(page, "coverage", "attributionCoverage", "coverage reset");
     await page.locator("#reset-filters").click();
     await page.locator("#reduction-select").selectOption("75");
     await page.locator(".projection-action").click();
     assert.equal(await page.locator("#waste-filter").inputValue(), "any");
     assert(await page.locator(".projection-action.active").count(), "projection action was not marked active");
-    await page.locator(".projection-action.active").click();
+    await assertEnabled(page, page.locator('.card-reset[data-reset-card="projection"]'), "projection reset");
+    await page.locator('.card-reset[data-reset-card="projection"]').click();
     assert.equal(await page.locator("#waste-filter").inputValue(), "all");
     await page.locator("#reset-filters").click();
 

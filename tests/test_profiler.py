@@ -2,15 +2,24 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-from codex_usage_profiler.analysis import build_aggregates, classify_outcomes, find_waste_candidates, reconcile_codexbar
+from codex_usage_profiler.analysis import (
+    build_aggregates,
+    build_paperclip_spend,
+    build_plan_analysis,
+    classify_outcomes,
+    find_waste_candidates,
+    reconcile_codexbar,
+)
 from codex_usage_profiler.attribution import attribute_sessions
 from codex_usage_profiler.codexbar import (
+    collect_codexbar,
     _normalize_cost_output,
     _normalize_usage_output,
     _read_cost_cache,
@@ -73,6 +82,25 @@ class ProfilerTests(unittest.TestCase):
         self.assertEqual(history["windows"][0]["latest"]["usedPercent"], 15)
         self.assertNotIn("secret", history["preferredAccountHash"])
 
+    def test_codexbar_collected_root(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "collected-sessions" / "macbook-pro" / "codexbar" / "abc"
+            root.mkdir(parents=True)
+            shutil.copy2(FIXTURES / "codex-v8.json", root / "codex-v8.json")
+            shutil.copy2(FIXTURES / "models-dev-v1.json", root / "models-dev-v1.json")
+            shutil.copy2(FIXTURES / "history_codex.json", root / "codex.json")
+            env = dict(os.environ)
+            os.environ["CODEXBAR_COLLECTED_ROOT"] = str(Path(tmp) / "collected-sessions")
+            try:
+                telemetry = collect_codexbar(enabled=True, timeout=1)
+            finally:
+                os.environ.clear()
+                os.environ.update(env)
+            self.assertTrue(telemetry.available)
+            self.assertIsNotNone(telemetry.cost_cache)
+            self.assertIsNotNone(telemetry.pricing_cache)
+            self.assertIsNotNone(telemetry.history)
+
     def test_estimates_and_reports(self) -> None:
         records, _ = parse_logs([str(FIXTURES / "complete.jsonl"), str(FIXTURES / "object_meta.jsonl")])
         attribute_sessions(records, Config())
@@ -81,13 +109,18 @@ class ProfilerTests(unittest.TestCase):
         apply_estimates(records, Config(), Telemetry())
         classify_outcomes(records)
         aggregates = build_aggregates(records)
+        paperclip_spend = build_paperclip_spend(records, Config())
+        plan_analysis = build_plan_analysis(records, Config(monthly_plan_price_usd=20.0))
         findings = find_waste_candidates(records)
         cost = _normalize_cost_output(json.loads((FIXTURES / "codexbar_cost.json").read_text()))
         reconciliation = reconcile_codexbar(records, cost)
         self.assertGreater(aggregates["project"][0]["total_tokens"], 0)
+        self.assertIn("projected_cost_usd", plan_analysis)
+        self.assertEqual(paperclip_spend["company_totals"], [])
         self.assertTrue(any(r.estimate.confidence == "rate_card_estimate" for r in records))
-        payload = json.loads(render_json(records, aggregates, findings, TelemetryLike(), reconciliation, [], False))
+        payload = json.loads(render_json(records, aggregates, findings, TelemetryLike(), reconciliation, [], paperclip_spend, plan_analysis, False))
         self.assertIn("sessions", payload)
+        self.assertIn("plan_analysis", payload)
         self.assertNotIn("first_request_snippet", payload["sessions"][0])
 
     def test_paperclip_staff_company_project_attribution(self) -> None:
@@ -98,12 +131,86 @@ class ProfilerTests(unittest.TestCase):
         self.assertEqual(warnings, [])
         attribute_sessions(records, config)
         apply_paperclip_attribution(records, build_paperclip_index(config))
+        class Telemetry:
+            pricing_cache = None
+        apply_estimates(records, config, Telemetry())
+        classify_outcomes(records)
         record = records[0]
         self.assertEqual(record.paperclip_company.label, "STA")
         self.assertEqual(record.paperclip_staff.label, "Security Engineer")
         self.assertEqual(record.paperclip_project.label, "Start2Scale")
         self.assertEqual(record.paperclip_task.label, "STA-42")
         self.assertEqual(record.project.label, "Start2Scale")
+        spend = build_paperclip_spend(records, Config(paperclip_root=str(root), projection_days=30))
+        self.assertEqual(spend["company_totals"][0]["company"], "STA")
+        self.assertEqual(spend["daily"][0]["period"], "2026-06-30")
+        self.assertGreater(spend["company_totals"][0]["projected_cost_usd"], 0)
+
+    def test_collected_paperclip_sidecar_preserves_company_and_staff(self) -> None:
+        root = FIXTURES / "paperclip" / "instances" / "default"
+        source = root / "companies" / "67a988b1-d14e-4f38-8d77-ca55848888b0" / "agents" / "08668359-96b5-4049-896f-f11e9925f771" / "codex-home" / "sessions" / "2026" / "06" / "30" / "paperclip-agent.jsonl"
+        with tempfile.TemporaryDirectory() as tmp:
+            collected = Path(tmp) / "collected-sessions" / "macbook-pro" / "codex" / "abc" / "paperclip-agent.jsonl"
+            collected.parent.mkdir(parents=True)
+            shutil.copy2(source, collected)
+            collected.with_suffix(".jsonl.meta.json").write_text(
+                json.dumps({"collector": "macbook-pro", "tool": "codex", "source_path": str(source)}),
+                encoding="utf-8",
+            )
+            config = Config(paperclip_root=str(root))
+            records, warnings = parse_logs([str(collected)])
+            self.assertEqual(warnings, [])
+            attribute_sessions(records, config)
+            apply_paperclip_attribution(records, build_paperclip_index(config))
+        record = records[0]
+        self.assertEqual(record.source_path, str(source))
+        self.assertEqual(record.paperclip_company.label, "STA")
+        self.assertEqual(record.paperclip_staff.label, "Security Engineer")
+        self.assertEqual(record.project.label, "Start2Scale")
+
+    def test_paperclip_prompt_preamble_attribution(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            session = Path(tmp) / "session.jsonl"
+            text = "\n".join(
+                [
+                    "Paperclip Company ID: 67a988b1-d14e-4f38-8d77-ca55848888b0",
+                    "Paperclip Company: Start2Scale",
+                    "Paperclip Agent ID: 08668359-96b5-4049-896f-f11e9925f771",
+                    "Paperclip Staff: Security Engineer",
+                    "Paperclip Project ID: 64b67709-14d6-4158-bb48-fec54144e061",
+                    "Paperclip Project: Start2Scale",
+                    "Paperclip Issue: STA-42",
+                    "Paperclip Task: Security review",
+                ]
+            )
+            session.write_text(
+                json.dumps({"timestamp": "2026-06-30T10:00:00Z", "type": "message", "payload": {"message": {"role": "user", "content": text}}, "usage": {"input_tokens": 1, "output_tokens": 2}}) + "\n",
+                encoding="utf-8",
+            )
+            records, _ = parse_logs([str(session)])
+            attribute_sessions(records, Config())
+            apply_paperclip_attribution(records, build_paperclip_index(Config(paperclip_root="/missing")))
+        self.assertEqual(records[0].paperclip_company.label, "Start2Scale")
+        self.assertEqual(records[0].paperclip_staff.label, "Security Engineer")
+        self.assertEqual(records[0].paperclip_project.label, "Start2Scale")
+        self.assertEqual(records[0].paperclip_task.label, "STA-42")
+
+    def test_paperclip_company_prefix_aliases(self) -> None:
+        root = FIXTURES / "paperclip" / "instances" / "default"
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_root = Path(tmp) / "instance"
+            project = tmp_root / "projects" / "d8126350-acdb-495b-ab18-469660d616d2" / "f278a9b4-0d9f-4fe9-88cb-bd20ad8bfd83" / "_default"
+            project.mkdir(parents=True)
+            (project / "max-17-venue-discovery-token-usage-audit.md").write_text("fixture", encoding="utf-8")
+            index = build_paperclip_index(Config(paperclip_root=str(tmp_root)))
+            self.assertEqual(index.companies["d8126350-acdb-495b-ab18-469660d616d2"], "Maximum Goat")
+            aliased = build_paperclip_index(
+                Config(
+                    paperclip_root=str(root),
+                    paperclip_company_aliases={"67a988b1-d14e-4f38-8d77-ca55848888b0": "Starter Scale"},
+                )
+            )
+            self.assertEqual(aliased.companies["67a988b1-d14e-4f38-8d77-ca55848888b0"], "Starter Scale")
 
     def test_cli_e2e_paperclip_json_report(self) -> None:
         root = FIXTURES / "paperclip" / "instances" / "default"

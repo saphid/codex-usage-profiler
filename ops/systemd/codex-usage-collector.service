@@ -1,0 +1,8 @@
+[Unit]
+Description=Collect local AI session files for Codex Usage Profiler
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/services/codex-usage-profiler
+ExecStart=%h/services/codex-usage-profiler/.venv/bin/codex-usage-collector --config %h/.config/codex-usage-profiler/collector.json --once

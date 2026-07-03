@@ -54,6 +54,7 @@ Common reports:
 codex-usage-profiler --days 7 --top 20
 codex-usage-profiler --since 2026-06-24
 codex-usage-profiler --format json --output reports/latest.json
+codex-usage-profiler --days 14 --monthly-plan-price-usd 200 --plan-price Plus=20 --plan-price Pro=200
 codex-usage-dashboard --report reports/latest.json
 ```
 
@@ -65,9 +66,30 @@ codex-usage-profiler --no-codexbar --paths ~/.codex/sessions
 
 Raw prompt and response bodies are not printed by default. Use `--include-snippets` only when you explicitly want bounded redacted task snippets in JSON/text output.
 
+## Network Collection
+
+For multi-machine setups, install the collector on each host and run the dashboard/report refresh on one always-on machine:
+
+```bash
+codex-usage-collector --print-default-config > ~/.config/codex-usage-profiler/collector.json
+codex-usage-collector --config ~/.config/codex-usage-profiler/collector.json --once
+```
+
+The collector scans configurable JSON/JSONL session globs for Codex, Claude, Pi, T3Chat, Kimi, droid, Cursor, OpenCode, and Paperclip, stages changed files with metadata sidecars, and pushes them to the configured central destination. Linux systemd user units, macOS launchd plist, LXSO report refresh, dashboard service, and a rootless high-port `.lan` proxy are under `ops/`.
+
+Central LXSO pattern:
+
+```bash
+ops/bin/codex-usage-run-report.sh
+codex-usage-dashboard --report ~/.local/state/codex-usage-profiler/latest-report.json --host 0.0.0.0 --port 8775
+```
+
+Collector, report-refresh, and dashboard access events are written as JSONL and can also be forwarded to Orange Pi syslog and LXSO2 Loki. In Grafana, query Loki with `{job="codex-usage-profiler"}` and narrow by `service="collector"`, `service="report"`, or `service="dashboard"`.
+
 ## What The Tool Produces
 
 - Usage grouped by client, project, task, model, day, hour, Paperclip company, Paperclip staff, and Paperclip task.
+- Paperclip company spend by day/month, company 30-day projections, and configurable plan-price comparisons.
 - Top sessions by observed tokens and rate-card cost.
 - Current CodexBar quota windows when CodexBar is installed.
 - CodexBar local-vs-cache ratio rows to reveal scope mismatch.
@@ -79,6 +101,7 @@ Raw prompt and response bodies are not printed by default. Use `--include-snippe
 - `Tokens`: observed tokens found in local session logs.
 - `Rate-card cost`: directional replacement-cost estimate from known model rates or CodexBar pricing caches.
 - `Live quota now`: current CodexBar quota window, not a historical usage allocation.
+- `Plan comparison`: projected local rate-card replacement cost vs configured plan price; useful for value/scale decisions, not official quota reconstruction.
 - `Observed share`: share of tokens within the scanned local logs.
 - `Durable output`: sessions with observable output signals such as edits, tests, commits, PRs, or action tools. This does not prove end-user value.
 - `Review candidates`: sessions matching patterns worth inspecting. These can overlap with durable-output sessions.
@@ -105,6 +128,7 @@ This project was built with OpenSpec as an explicit design trail:
 
 - `openspec/changes/build-usage-profiler/`: ingestion, attribution, quota/cost estimates, outcome evidence, reporting.
 - `openspec/changes/add-session-dashboard-ui/`: compact dashboard, user stories, mockup validation, interaction contract.
+- `openspec/changes/add-network-session-collection/`: multi-host collection, LXSO deployment, `.lan` access, and Grafana-visible logging.
 - `docs/dashboard-final-interaction-contract.md`: card-by-card interaction expectations.
 - `docs/critical-review.md`: subagent critique summary and which critical fixes were accepted.
 
