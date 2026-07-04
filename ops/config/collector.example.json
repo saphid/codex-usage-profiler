@@ -1,0 +1,21 @@
+{
+  "collector_name": "HOSTNAME",
+  "destination": "saphid@lxso1:/home/saphid/.local/share/codex-usage-profiler/collected-sessions",
+  "include_defaults": true,
+  "syslog_host": "192.168.1.30",
+  "syslog_port": 514,
+  "syslog_protocol": "tcp",
+  "loki_url": "http://192.168.1.221:3100/loki/api/v1/push",
+  "tools": {
+    "t3chat": [
+      "~/.t3chat/**/*.jsonl",
+      "~/.config/t3chat/**/*.jsonl"
+    ],
+    "kimi": [
+      "~/.kimi/**/*.jsonl"
+    ],
+    "droid": [
+      "~/.droid/**/*.jsonl"
+    ]
+  }
+}

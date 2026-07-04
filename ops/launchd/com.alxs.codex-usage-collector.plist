@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.alxs.codex-usage-collector</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/saphid/Library/Application Support/PA-Agent/codex-usage-profiler-venv/bin/codex-usage-collector</string>
+    <string>--config</string>
+    <string>/Users/saphid/.config/codex-usage-profiler/collector.json</string>
+    <string>--once</string>
+  </array>
+  <key>StartInterval</key>
+  <integer>300</integer>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>/Users/saphid/Library/Logs/codex-usage-collector.launchd.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/saphid/Library/Logs/codex-usage-collector.launchd.log</string>
+</dict>
+</plist>

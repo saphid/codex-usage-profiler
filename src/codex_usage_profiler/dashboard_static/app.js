@@ -46,6 +46,7 @@
     "waste-drivers": "Ranked recurring review candidates. Click a row to filter the session table to that pattern. Candidate rows can overlap.",
     coverage: "Attribution coverage shows how much filtered usage can be tied to client, project, staff, and task. Click unknown buckets to investigate gaps.",
     confidence: "Confidence is the weakest key attribution signal across client, project, staff, and task. Lower confidence means the profiler needs better attribution evidence.",
+    "company-spend": "Paperclip company spend groups filtered sessions by Paperclip company and day. Projected cost uses the filtered observed span, so treat it as directional plan-selection evidence.",
     projection: "Cleanup projection estimates directional savings from de-duplicated sessions in the top review-candidate drivers.",
     notifications: "Notification hooks are not enabled in this local-only dashboard yet.",
     settings: "Settings will hold report paths, privacy defaults, and quota assumptions in a later version."
@@ -504,6 +505,71 @@
     return Object.keys(map).map(function (key) { return map[key]; }).sort(function (a, b) { return b.tokens - a.tokens; });
   }
 
+  function dayString(session) {
+    var date = startDate(session);
+    return date ? date.toISOString().slice(0, 10) : "unknown";
+  }
+
+  function dateSpanDays(days) {
+    days = (days || []).filter(function (day) { return day !== "unknown"; }).sort();
+    if (!days.length) return 1;
+    var first = new Date(days[0] + "T00:00:00Z").getTime();
+    var last = new Date(days[days.length - 1] + "T00:00:00Z").getTime();
+    if (!isFinite(first) || !isFinite(last)) return 1;
+    return Math.max(1, Math.round((last - first) / 86400000) + 1);
+  }
+
+  function companySpendModel(sessions, report, metric) {
+    var valueFor = metric === "tokens" ? tokens : cost;
+    var projectionDays = Number((report.plan_analysis && report.plan_analysis.projection_days) || (report.paperclip_spend && report.paperclip_spend.projection_days) || 30);
+    var totals = {};
+    var days = {};
+    var dayCompany = {};
+    (sessions || []).forEach(function (session) {
+      var company = attrLabel(session.paperclip_company);
+      if (company === "unknown") return;
+      var day = dayString(session);
+      var value = valueFor(session);
+      if (!totals[company]) totals[company] = { company: company, sessions: 0, tokens: 0, cost: 0, days: {} };
+      totals[company].sessions += 1;
+      totals[company].tokens += tokens(session);
+      totals[company].cost += cost(session);
+      totals[company].days[day] = true;
+      days[day] = true;
+      var key = day + "|" + company;
+      if (!dayCompany[key]) dayCompany[key] = { day: day, company: company, sessions: 0, tokens: 0, cost: 0, value: 0 };
+      dayCompany[key].sessions += 1;
+      dayCompany[key].tokens += tokens(session);
+      dayCompany[key].cost += cost(session);
+      dayCompany[key].value += value;
+    });
+    var totalRows = Object.keys(totals).map(function (company) {
+      var row = totals[company];
+      var activeDays = Object.keys(row.days).length;
+      var span = dateSpanDays(Object.keys(row.days));
+      row.activeDays = activeDays;
+      row.observedSpanDays = span;
+      row.projectedCost = span ? row.cost / span * projectionDays : 0;
+      row.projectedTokens = span ? row.tokens / span * projectionDays : 0;
+      return row;
+    }).sort(function (a, b) { return b[metric] - a[metric]; });
+    var topCompanies = {};
+    totalRows.slice(0, 5).forEach(function (row) { topCompanies[row.company] = true; });
+    var dayRows = Object.keys(days).sort().slice(-14).map(function (day) {
+      var companies = {};
+      var total = 0;
+      Object.keys(dayCompany).forEach(function (key) {
+        var row = dayCompany[key];
+        if (row.day !== day) return;
+        var label = topCompanies[row.company] ? row.company : "Other";
+        companies[label] = (companies[label] || 0) + row.value;
+        total += row.value;
+      });
+      return { day: day, companies: companies, total: total };
+    });
+    return { metric: metric, projectionDays: projectionDays, totals: totalRows, days: dayRows };
+  }
+
   function outcomeBucket(session, findingIndex) {
     if (isWaste(session, findingIndex || {})) return "Waste";
     if (isUseful(session)) return "Useful";
@@ -588,11 +654,11 @@
   }
 
   function layoutFlowModel(model, width, height) {
-    width = Math.max(360, Number(width) || 520);
+    width = Math.max(300, Number(width) || 520);
     var maxNodes = model.columns.reduce(function (max, column) { return Math.max(max, column.nodes.length); }, 0);
     var requiredHeight = 46 + maxNodes * 36 + Math.max(0, maxNodes - 1) * 8;
     height = Math.max(220, Number(height) || 300, requiredHeight);
-    var nodeWidth = Math.min(144, Math.max(88, width * 0.16));
+    var nodeWidth = Math.min(144, Math.max(68, width * 0.17));
     var stageGap = model.columns.length > 1 ? (width - nodeWidth) / (model.columns.length - 1) : 0;
     var topPad = 34;
     var bottomPad = 12;
@@ -1035,6 +1101,71 @@
     commitFilterChange();
   }
 
+  function isCardFilterActive(kind) {
+    var filters = app.state.filters;
+    if (kind === "flow") {
+      return Boolean(
+        filters.clients.length ||
+        filters.projects.length ||
+        filters.staff.length ||
+        filters.outcomes.length ||
+        filters.outcomeBucket ||
+        filters.sessionIds.length
+      );
+    }
+    if (kind === "timeline") return Boolean(filters.brushStartTime || filters.brushEndTime || app.state.hiddenOutcomes.length);
+    if (kind === "company") return Boolean(filters.companies.length || filters.brushStartTime || filters.brushEndTime);
+    if (kind === "heatmap") return Boolean(filters.weekdays.length || filters.hourStart !== "" || filters.hourEnd !== "");
+    if (kind === "waste") return Boolean(filters.waste !== "all" || filters.wasteKind);
+    if (kind === "coverage") return Boolean(filters.attributionCoverage);
+    if (kind === "projection") return Boolean(filters.waste === "any" && !filters.wasteKind);
+    return false;
+  }
+
+  function resetCardFilter(kind) {
+    var filters = app.state.filters;
+    if (kind === "flow") {
+      var hadOutcomeBucket = Boolean(filters.outcomeBucket);
+      filters.clients = [];
+      filters.projects = [];
+      filters.staff = [];
+      filters.outcomes = [];
+      filters.outcomeBucket = "";
+      filters.sessionIds = [];
+      if (hadOutcomeBucket && filters.waste === "any" && !filters.wasteKind) filters.waste = "all";
+    } else if (kind === "timeline") {
+      filters.brushStartTime = "";
+      filters.brushEndTime = "";
+      app.state.hiddenOutcomes = [];
+    } else if (kind === "company") {
+      filters.companies = [];
+      filters.brushStartTime = "";
+      filters.brushEndTime = "";
+    } else if (kind === "heatmap") {
+      filters.weekdays = [];
+      filters.hourStart = "";
+      filters.hourEnd = "";
+    } else if (kind === "waste") {
+      filters.waste = "all";
+      filters.wasteKind = "";
+    } else if (kind === "coverage") {
+      filters.attributionCoverage = "";
+    } else if (kind === "projection") {
+      if (filters.waste === "any" && !filters.wasteKind) filters.waste = "all";
+    }
+    commitFilterChange();
+  }
+
+  function updateCardResetButtons() {
+    Array.prototype.slice.call(document.querySelectorAll(".card-reset[data-reset-card]")).forEach(function (button) {
+      var kind = button.getAttribute("data-reset-card");
+      var active = isCardFilterActive(kind);
+      button.disabled = !active;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-disabled", active ? "false" : "true");
+    });
+  }
+
   function renderFlow(sessions, state) {
     var container = document.getElementById("spend-flow");
     clear(container);
@@ -1367,6 +1498,82 @@
       });
       container.appendChild(wrap);
     });
+  }
+
+  function renderCompanySpend(sessions, report, state) {
+    var container = document.getElementById("company-spend");
+    clear(container);
+    var metric = state.metric === "tokens" ? "tokens" : "cost";
+    var model = companySpendModel(sessions, report || {}, metric);
+    if (!model.totals.length) {
+      container.appendChild(el("p", { class: "muted" }, ["No Paperclip company sessions in this filter."]));
+      return;
+    }
+    var maxDay = Math.max.apply(Math, model.days.map(function (row) { return row.total; }).concat([1]));
+    var maxTotal = Math.max.apply(Math, model.totals.slice(0, 5).map(function (row) { return row[metric]; }).concat([1]));
+    var planPrice = Number((report.plan_analysis && report.plan_analysis.monthly_plan_price_usd) || 0);
+    var topWrap = el("div", { class: "company-spend-top" });
+    model.totals.slice(0, 5).forEach(function (row) {
+      var projected = metric === "tokens" ? row.projectedTokens : row.projectedCost;
+      var value = metric === "tokens" ? row.tokens : row.cost;
+      var button = el("button", {
+        type: "button",
+        class: sameArrayValues(app.state.filters.companies, [row.company]) ? "active" : "",
+        style: "--bar:" + Math.max(4, value / maxTotal * 100).toFixed(1) + "%",
+        "aria-pressed": sameArrayValues(app.state.filters.companies, [row.company]) ? "true" : "false",
+        "aria-label": "Filter Paperclip company " + row.company
+      }, [
+        el("strong", { title: row.company }, [row.company]),
+        el("span", {}, [formatMetricValue(value, metric) + " observed"]),
+        el("span", {}, [formatMetricValue(projected, metric) + " projected " + model.projectionDays + "d"])
+      ]);
+      button.addEventListener("click", function () {
+        app.state.filters.companies = sameArrayValues(app.state.filters.companies, [row.company]) ? [] : [row.company];
+        commitFilterChange();
+      });
+      topWrap.appendChild(button);
+    });
+    container.appendChild(topWrap);
+    var dayWrap = el("div", { class: "company-day-bars" });
+    model.days.forEach(function (row) {
+      var activeDay = app.state.filters.brushStartTime === row.day + "T00:00:00.000Z" && app.state.filters.brushEndTime === row.day + "T23:59:59.999Z";
+      var day = el("button", {
+        type: "button",
+        class: "company-day" + (activeDay ? " active" : ""),
+        title: row.day + " " + formatMetricValue(row.total, metric),
+        "aria-pressed": activeDay ? "true" : "false",
+        "aria-label": (activeDay ? "Clear day " : "Filter day ") + row.day
+      }, [
+        el("span", { class: "day-label" }, [row.day.slice(5)])
+      ]);
+      var stack = el("span", { class: "day-stack", style: "--height:" + Math.max(3, row.total / maxDay * 100).toFixed(1) + "%" });
+      Object.keys(row.companies).sort(function (a, b) { return row.companies[b] - row.companies[a]; }).forEach(function (company, idx) {
+        stack.appendChild(el("span", {
+          class: "company-segment seg-" + (idx % 6),
+          style: "height:" + (row.companies[company] / Math.max(1, row.total) * 100).toFixed(1) + "%",
+          title: company + " " + formatMetricValue(row.companies[company], metric)
+        }));
+      });
+      day.addEventListener("click", function () {
+        if (activeDay) {
+          app.state.filters.brushStartTime = "";
+          app.state.filters.brushEndTime = "";
+        } else {
+          app.state.filters.brushStartTime = row.day + "T00:00:00.000Z";
+          app.state.filters.brushEndTime = row.day + "T23:59:59.999Z";
+        }
+        commitFilterChange();
+      });
+      day.appendChild(stack);
+      dayWrap.appendChild(day);
+    });
+    container.appendChild(dayWrap);
+    if (planPrice) {
+      var projectedCost = model.totals.reduce(function (sum, row) { return sum + row.projectedCost; }, 0);
+      container.appendChild(el("p", { class: "company-plan-note" }, [
+        "Filtered projected rate-card cost " + formatCost(projectedCost) + " vs plan price " + formatCost(planPrice) + " (" + formatPercent(planPrice ? projectedCost / planPrice * 100 : null) + ")."
+      ]));
+    }
   }
 
   function renderWasteDrivers(sessions, report) {
@@ -1829,11 +2036,13 @@
     renderKpis(summary);
     renderFlow(flowSessions, app.state);
     renderTimeline(app.filtered, app.report);
+    renderCompanySpend(app.filtered, app.report, app.state);
     renderHeatmap(app.filtered);
     renderWasteDrivers(app.filtered, app.report);
     renderCoverage(app.filtered);
     renderProjection(app.filtered, app.report);
     renderChips(app.state);
+    updateCardResetButtons();
     renderTable(app.filtered, app.state, app.report);
     renderDrawer(app.filtered, app.state, app.report);
     var query = encodeFilters(app.state);
@@ -1857,6 +2066,12 @@
     });
     document.getElementById("density-select").addEventListener("change", renderApp);
     document.getElementById("reduction-select").addEventListener("change", renderApp);
+    Array.prototype.slice.call(document.querySelectorAll(".card-reset[data-reset-card]")).forEach(function (button) {
+      button.addEventListener("click", function () {
+        if (button.disabled) return;
+        resetCardFilter(button.getAttribute("data-reset-card"));
+      });
+    });
     bindBrushEvents();
     document.getElementById("prev-page").addEventListener("click", function () {
       app.state.page = Math.max(1, app.state.page - 1);
@@ -1965,6 +2180,13 @@
       document.getElementById("evidence-drawer").classList.add("drawer-closed");
       document.body.classList.add("drawer-hidden");
       renderApp();
+    });
+    var resizeTimer = null;
+    window.addEventListener("resize", function () {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(function () {
+        renderApp();
+      }, 60);
     });
   }
 
@@ -2172,6 +2394,7 @@
     wasteDrivers: wasteDrivers,
     coverageStats: coverageStats,
     hourlyBuckets: hourlyBuckets,
+    companySpendModel: companySpendModel,
     timeExtent: timeExtent,
     sortSessions: sortSessions,
     normalizeSession: normalizeSession,

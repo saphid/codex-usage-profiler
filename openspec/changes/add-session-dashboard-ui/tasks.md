@@ -24,3 +24,11 @@
 - [x] 4.2 Add data-function tests for filtering, sorting, summaries, CSV, and permalink state
 - [x] 4.3 Run the unit and integration test suite
 - [x] 4.4 Start the dashboard against the real report and verify local/Tailscale access details
+
+## 5. Interaction And Layout Hardening
+
+- [x] 5.1 Add card-local reset controls for all filterable visualization panels
+- [x] 5.2 Make company day selections visibly active and reversible
+- [x] 5.3 Re-render the Sankey flow after viewport/sidebar size changes
+- [x] 5.4 Fix desktop/sidebar and mobile text overflow in panel headers, heatmap, coverage, and topbar
+- [x] 5.5 Extend E2E tests for card resets, flow bounds, and viewport overflow

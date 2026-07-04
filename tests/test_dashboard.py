@@ -89,6 +89,8 @@ def sample_report() -> dict:
         "run": {"session_count": len(sessions), "warning_count": 0, "confidence_note": "fixture"},
         "telemetry": {"available": True, "live_usage": {"windows": [{"usedPercent": 40}]}, "warnings": []},
         "aggregates": {},
+        "paperclip_spend": {"projection_days": 30},
+        "plan_analysis": {"projection_days": 30, "monthly_plan_price_usd": 20.0},
         "findings": [
             {
                 "kind": "retry_loop",
@@ -130,6 +132,24 @@ class DashboardTests(unittest.TestCase):
             self.assertIn("color-scheme: dark", css)
             self.assertEqual(api["run"]["session_count"], 3)
             self.assertEqual(health, "ok\n")
+
+    def test_dashboard_server_accepts_syslog_options(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report_path = Path(tmp) / "report.json"
+            report_path.write_text(json.dumps(sample_report()), encoding="utf-8")
+            server = make_server(
+                report_path,
+                "127.0.0.1",
+                0,
+                syslog_host=None,
+                syslog_port=514,
+                loki_url="http://loki.example/api/v1/push",
+            )
+            try:
+                self.assertEqual(server.RequestHandlerClass.syslog_port, 514)
+                self.assertEqual(server.RequestHandlerClass.loki_url, "http://loki.example/api/v1/push")
+            finally:
+                server.server_close()
 
     def test_dashboard_data_functions_filter_sort_export_and_permalink(self) -> None:
         script = f"""
@@ -223,6 +243,11 @@ assert.deepStrictEqual(filtered.map((session) => session.session_id), ['s-waste'
 
 const costBuckets = dashboard.hourlyBuckets(report.sessions, report, 'cost');
 assert.strictEqual(Math.round(costBuckets.reduce((sum, bucket) => sum + bucket.total, 0) * 10) / 10, 6.5);
+const companySpend = dashboard.companySpendModel(report.sessions, report, 'cost');
+assert.strictEqual(companySpend.totals[0].company, 'Acme');
+assert.strictEqual(companySpend.totals[0].sessions, 2);
+assert(companySpend.totals[0].projectedCost > 0);
+assert(companySpend.days.some((row) => row.day === '2026-06-30'));
 
 const coverage = dashboard.coverageStats(report.sessions);
 assert(coverage.unknownStaff > 10 && coverage.unknownStaff < 20);
@@ -254,6 +279,8 @@ assert.deepStrictEqual(richDecoded.visibleColumns, ['start_time', 'session_id', 
 """
         env = dict(os.environ)
         env["CUP_REPORT"] = json.dumps(sample_report())
+        # Hour/day filters work in local time; expectations assume UTC+10.
+        env["TZ"] = "Australia/Sydney"
         proc = subprocess.run(["node", "-e", script], text=True, capture_output=True, env=env, check=False)
         self.assertEqual(proc.returncode, 0, proc.stderr)
 

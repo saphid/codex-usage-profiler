@@ -48,6 +48,7 @@ def parse_logs(paths: Optional[List[str]] = None, since: Optional[str] = None) -
 
 def parse_log(path: Path) -> SessionRecord:
     record = SessionRecord(session_id=path.stem, path=str(path))
+    _apply_collector_sidecar(record, path)
     current_usage = empty_usage()
     event_counts: Counter[str] = Counter()
     tool_counts: Counter[str] = Counter()
@@ -96,11 +97,20 @@ def parse_log(path: Path) -> SessionRecord:
                     current_usage = usage
                     record.usage_known = True
 
+        _apply_generic_metadata(record, event)
+        usage = _extract_usage(event)
+        if usage:
+            usage_total = usage.get("total_tokens", 0)
+            if usage_total >= current_usage.get("total_tokens", 0):
+                current_usage = usage
+                record.usage_known = True
+
         request_text = _find_user_text(event)
         if request_text and not record.first_request_hash:
             record.first_request_hash = stable_hash(request_text)
             record.first_request_snippet = bounded_snippet(request_text)
-            record.first_request_features = _extract_request_features(request_text)
+            for key, value in _extract_request_features(request_text).items():
+                record.first_request_features.setdefault(key, value)
 
         tool_name, arguments = _find_tool_call(event)
         if tool_name:
@@ -160,6 +170,63 @@ def _apply_turn_context(record: SessionRecord, payload: Dict[str, Any]) -> None:
         record.workspace_roots = [r for r in (scalar_to_string(item) for item in roots) if r]
 
 
+def _apply_generic_metadata(record: SessionRecord, event: Dict[str, Any]) -> None:
+    record.cwd = scalar_to_string(event.get("cwd") or event.get("working_dir") or event.get("workingDirectory")) or record.cwd
+    record.model = scalar_to_string(event.get("model") or event.get("model_name")) or record.model
+    record.source = scalar_to_string(event.get("source") or event.get("client") or event.get("app")) or record.source
+    record.originator = scalar_to_string(event.get("originator") or event.get("tool")) or record.originator
+    roots = event.get("workspace_roots") or event.get("workspaceRoots")
+    if isinstance(roots, list):
+        record.workspace_roots = [r for r in (scalar_to_string(item) for item in roots) if r] or record.workspace_roots
+    _apply_paperclip_metadata(record, event)
+    payload = event.get("payload")
+    if isinstance(payload, dict):
+        _apply_paperclip_metadata(record, payload)
+
+
+def _apply_collector_sidecar(record: SessionRecord, path: Path) -> None:
+    meta = _read_json(path.with_suffix(path.suffix + ".meta.json"))
+    if not isinstance(meta, dict):
+        return
+    record.source_path = scalar_to_string(meta.get("source_path")) or record.source_path
+    record.collector = scalar_to_string(meta.get("collector")) or record.collector
+    record.collector_tool = scalar_to_string(meta.get("tool")) or record.collector_tool
+    if record.collector_tool and not record.source:
+        record.source = record.collector_tool
+    if record.source_path and record.source_path not in record.workspace_roots:
+        record.workspace_roots.append(record.source_path)
+    _apply_paperclip_metadata(record, meta)
+
+
+def _apply_paperclip_metadata(record: SessionRecord, event: Dict[str, Any]) -> None:
+    candidates: List[Dict[str, Any]] = [event]
+    paperclip = event.get("paperclip") or event.get("paperclip_metadata") or event.get("paperclipMetadata")
+    if isinstance(paperclip, dict):
+        candidates.append(paperclip)
+    mappings = {
+        "company": ["paperclip_company", "paperclipCompany", "company", "company_name", "companyName"],
+        "company_id": ["paperclip_company_id", "paperclipCompanyId", "company_id", "companyId"],
+        "project": ["paperclip_project", "paperclipProject", "project", "project_name", "projectName"],
+        "project_id": ["paperclip_project_id", "paperclipProjectId", "project_id", "projectId"],
+        "agent": ["paperclip_agent", "paperclipAgent", "agent", "agent_name", "agentName"],
+        "agent_id": ["paperclip_agent_id", "paperclipAgentId", "agent_id", "agentId", "staff_id", "staffId"],
+        "workspace_id": ["paperclip_workspace_id", "paperclipWorkspaceId", "workspace_id", "workspaceId"],
+        "staff": ["paperclip_staff", "paperclipStaff", "staff", "staff_name", "staffName"],
+        "task": ["paperclip_task", "paperclipTask", "task", "task_title", "taskTitle"],
+        "issue": ["paperclip_issue", "paperclipIssue", "issue", "issue_key", "issueKey"],
+        "queue": ["paperclip_queue", "paperclipQueue", "queue"],
+    }
+    for source in candidates:
+        for feature_key, field_names in mappings.items():
+            if record.first_request_features.get(feature_key):
+                continue
+            for field_name in field_names:
+                value = scalar_to_string(source.get(field_name))
+                if value:
+                    record.first_request_features[feature_key] = bounded_snippet(value, 120)
+                    break
+
+
 def _extract_usage(payload: Dict[str, Any]) -> Optional[Dict[str, int]]:
     info = payload.get("info")
     usage = None
@@ -174,8 +241,18 @@ def _extract_usage(payload: Dict[str, Any]) -> Optional[Dict[str, int]]:
         value = usage.get(key)
         if isinstance(value, (int, float)):
             result[key] = int(value)
+    cache_creation = usage.get("cache_creation_input_tokens")
+    cache_read = usage.get("cache_read_input_tokens")
+    if isinstance(cache_creation, (int, float)):
+        result["cached_input_tokens"] += int(cache_creation)
+    if isinstance(cache_read, (int, float)):
+        result["cached_input_tokens"] += int(cache_read)
+    if result["input_tokens"] == 0 and isinstance(usage.get("prompt_tokens"), (int, float)):
+        result["input_tokens"] = int(usage.get("prompt_tokens") or 0)
+    if result["output_tokens"] == 0 and isinstance(usage.get("completion_tokens"), (int, float)):
+        result["output_tokens"] = int(usage.get("completion_tokens") or 0)
     if result["total_tokens"] == 0:
-        result["total_tokens"] = result["input_tokens"] + result["output_tokens"]
+        result["total_tokens"] = result["input_tokens"] + result["cached_input_tokens"] + result["output_tokens"]
     return result
 
 
@@ -301,12 +378,17 @@ def _infer_session_id(path: Path, record: SessionRecord) -> str:
 def _extract_request_features(text: str) -> Dict[str, str]:
     features: Dict[str, str] = {}
     patterns = {
-        "company": r"(?im)^\s*Company\s*:\s*(.+)$",
-        "project": r"(?im)^\s*Project\s*:\s*(.+)$",
+        "company": r"(?im)^\s*(?:Paperclip\s+Company|Company)\s*:\s*(.+)$",
+        "company_id": r"(?im)^\s*(?:Paperclip[- ]?Company[- ]?ID|Company\s+ID)\s*:\s*([0-9a-f-]{16,})\s*$",
+        "project": r"(?im)^\s*(?:Paperclip\s+Project|Project)\s*:\s*(.+)$",
+        "project_id": r"(?im)^\s*(?:Paperclip[- ]?Project[- ]?ID|Project\s+ID)\s*:\s*([0-9a-f-]{16,})\s*$",
         "queue": r"(?im)^\s*Queue\s*:\s*(.+)$",
-        "task": r"(?im)^\s*(?:Task|Title)\s*:\s*(.+)$",
+        "task": r"(?im)^\s*(?:Paperclip\s+Task|Task|Title)\s*:\s*(.+)$",
         "submitted_by": r"(?im)^\s*Submitted by\s*:\s*(.+)$",
-        "agent": r"(?im)^\s*Agent\s*:\s*(.+)$",
+        "agent": r"(?im)^\s*(?:Paperclip\s+Agent|Agent)\s*:\s*(.+)$",
+        "agent_id": r"(?im)^\s*(?:Paperclip[- ]?Agent[- ]?ID|Agent\s+ID|Staff\s+ID)\s*:\s*([0-9a-f-]{16,})\s*$",
+        "staff": r"(?im)^\s*(?:Paperclip\s+Staff|Staff|Role)\s*:\s*(.+)$",
+        "issue": r"(?im)^\s*(?:Paperclip\s+Issue|Issue|Issue\s+Key)\s*:\s*([A-Z]{2,10}-\d+).*$",
     }
     for key, pattern in patterns.items():
         match = re.search(pattern, text)
@@ -316,3 +398,10 @@ def _extract_request_features(text: str) -> Dict[str, str]:
     if issue:
         features["issue"] = issue.group(1)
     return features
+
+
+def _read_json(path: Path) -> Any:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None

@@ -128,13 +128,16 @@
                 <h2>Spend Flow <button class="info-button" type="button" data-info="spend-flow" aria-label="About Spend Flow">i</button></h2>
                 <p class="panel-sub">Client -&gt; Project -&gt; Staff -&gt; Outcome</p>
               </div>
-              <label class="metric-toggle segmented-select">
-                <span>View as</span>
-                <select id="metric-toggle" data-testid="metric-toggle">
-                  <option value="cost">Cost</option>
-                  <option value="tokens">Tokens</option>
-                </select>
-              </label>
+              <div class="panel-actions">
+                <label class="metric-toggle segmented-select">
+                  <span>View as</span>
+                  <select id="metric-toggle" data-testid="metric-toggle">
+                    <option value="cost">Cost</option>
+                    <option value="tokens">Tokens</option>
+                  </select>
+                </label>
+                <button class="card-reset" type="button" data-reset-card="flow" aria-label="Reset Spend Flow selection">Reset</button>
+              </div>
             </div>
             <div id="spend-flow" class="flow-grid"></div>
           </article>
@@ -154,6 +157,7 @@
                   <option value="tokens">Tokens</option>
                   <option value="cost">Cost</option>
                 </select>
+                <button class="card-reset" type="button" data-reset-card="timeline" aria-label="Reset Usage Over Time selection">Reset</button>
                 <button id="timeline-menu" type="button" aria-label="Timeline options">...</button>
               </div>
             </div>
@@ -164,9 +168,20 @@
             </div>
             <p id="brush-summary" class="brush-summary muted"></p>
           </article>
+          <article class="panel wide" data-testid="company-spend">
+            <div class="panel-head">
+              <div>
+                <h2>Paperclip Company Spend <button class="info-button" type="button" data-info="company-spend" aria-label="About Paperclip Company Spend">i</button></h2>
+                <p class="panel-sub">Observed and projected by company</p>
+              </div>
+              <button class="card-reset" type="button" data-reset-card="company" aria-label="Reset Paperclip Company Spend selection">Reset</button>
+            </div>
+            <div id="company-spend" class="company-spend"></div>
+          </article>
           <article class="panel" data-testid="heatmap">
             <div class="panel-head">
               <h2>Usage Heatmap <span class="muted">(Tokens)</span> <button class="info-button" type="button" data-info="heatmap" aria-label="About Usage Heatmap">i</button></h2>
+              <button class="card-reset" type="button" data-reset-card="heatmap" aria-label="Reset Usage Heatmap selection">Reset</button>
             </div>
             <div id="heatmap" class="heatmap" aria-label="Usage by day and hour"></div>
             <div class="heat-legend"><span>Lower</span><span></span><span>Higher</span></div>
@@ -174,6 +189,7 @@
           <article class="panel" data-testid="waste-drivers">
             <div class="panel-head">
               <h2>Top Review Candidates <button class="info-button" type="button" data-info="waste-drivers" aria-label="About Top Review Candidates">i</button></h2>
+              <button class="card-reset" type="button" data-reset-card="waste" aria-label="Reset Top Review Candidates selection">Reset</button>
             </div>
             <div class="driver-header"><span>Pattern</span><span>Sessions</span><span>Candidate Cost</span></div>
             <div id="waste-drivers" class="driver-list"></div>
@@ -182,6 +198,7 @@
           <article class="panel" data-testid="coverage-chart">
             <div class="panel-head">
               <h2>Attribution Coverage <button class="info-button" type="button" data-info="coverage" aria-label="About Attribution Coverage">i</button></h2>
+              <button class="card-reset" type="button" data-reset-card="coverage" aria-label="Reset Attribution Coverage selection">Reset</button>
             </div>
             <div id="coverage-chart" class="coverage"></div>
             <a class="panel-link" href="#session-table">View unknown buckets</a>
@@ -197,6 +214,7 @@
                   <option value="75">75%</option>
                 </select>
               </label>
+              <button class="card-reset" type="button" data-reset-card="projection" aria-label="Reset Cleanup Projection selection">Reset</button>
             </div>
             <div id="cleanup-projection" class="projection"></div>
             <a class="panel-link" href="#waste-drivers">How projection is calculated</a>

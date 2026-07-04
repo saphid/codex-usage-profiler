@@ -1,0 +1,10 @@
+[Unit]
+Description=Refresh Codex Usage Profiler report
+After=network-online.target
+
+[Service]
+Type=oneshot
+Environment=CUP_APP_HOME=%h/services/codex-usage-profiler
+Environment=CUP_SYSLOG_HOST=192.168.1.30
+WorkingDirectory=%h/services/codex-usage-profiler
+ExecStart=%h/services/codex-usage-profiler/ops/bin/codex-usage-run-report.sh
