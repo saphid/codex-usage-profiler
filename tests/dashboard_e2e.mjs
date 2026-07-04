@@ -223,6 +223,23 @@ async function assertNoUnexpectedOverflow(page, label) {
   assert.equal(overflow.length, 0, `${label}: unexpected horizontal overflow ${JSON.stringify(overflow.slice(0, 5))}`);
 }
 
+async function waitForFlowSettled(page) {
+  // The app re-renders the flow behind a 60ms resize debounce, so a fixed
+  // sleep races the render under load. Wait until container width and node
+  // geometry have been stable for longer than the debounce window.
+  await page.waitForFunction(() => {
+    const flow = document.querySelector("#spend-flow");
+    const nodes = Array.from(document.querySelectorAll(".flow-node"));
+    if (!flow || !nodes.length) return false;
+    const signature = `${flow.clientWidth}|${nodes.map((node) => node.getAttribute("style")).join(";")}`;
+    if (window.__flowSettle && window.__flowSettle.signature === signature) {
+      return performance.now() - window.__flowSettle.at > 150;
+    }
+    window.__flowSettle = { signature, at: performance.now() };
+    return false;
+  }, { polling: 100, timeout: 15000 });
+}
+
 async function run() {
   await mkdir(REPORTS, { recursive: true });
   const work = await mkdtemp(path.join(tmpdir(), "cup-e2e-"));
@@ -241,20 +258,21 @@ async function run() {
     page.on("pageerror", (err) => errors.push(err.message));
     await page.goto(baseUrl);
     await page.waitForSelector(".flow-node");
+    await waitForFlowSettled(page);
     await assertFlowGeometry(page, "initial");
     await assertNoUnexpectedOverflow(page, "initial 1440");
 
     for (const size of [{ width: 1120, height: 900 }, { width: 1728, height: 1117 }, { width: 1280, height: 900 }, { width: 390, height: 860 }]) {
       await page.setViewportSize(size);
-      await page.waitForTimeout(100);
+      await waitForFlowSettled(page);
       await assertFlowGeometry(page, `viewport ${size.width}`);
       await assertNoUnexpectedOverflow(page, `viewport ${size.width}`);
     }
     await page.setViewportSize({ width: 1440, height: 1000 });
-    await page.waitForTimeout(100);
+    await waitForFlowSettled(page);
     await page.locator("#hide-filters").click();
     await page.locator("#close-drawer").click();
-    await page.waitForTimeout(100);
+    await waitForFlowSettled(page);
     await assertFlowGeometry(page, "filters and drawer hidden");
     const widenedFlow = await page.locator("#spend-flow").evaluate((node) => node.clientWidth);
     assert(widenedFlow > 500, `combined hidden layout collapsed flow to ${widenedFlow}px`);
