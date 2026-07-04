@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from collections import Counter, defaultdict
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
+from .config import Config
 from .models import Attribution, Finding, SessionRecord
-from .util import day_key, hour_key
+from .util import day_key, hour_key, iso_to_datetime
 
 
 def classify_outcomes(records: List[SessionRecord]) -> None:
@@ -104,6 +105,53 @@ def build_aggregates(records: List[SessionRecord]) -> Dict[str, List[Dict[str, o
     }
 
 
+def build_paperclip_spend(records: List[SessionRecord], config: Config) -> Dict[str, Any]:
+    paperclip_records = [record for record in records if record.paperclip_company.label != "unknown"]
+    daily = _period_rows(paperclip_records, "day")
+    monthly = _period_rows(paperclip_records, "month")
+    totals = _company_totals(paperclip_records, config.projection_days)
+    return {
+        "projection_days": config.projection_days,
+        "attributed_sessions": len(paperclip_records),
+        "attributed_tokens": sum(record.usage.get("total_tokens", 0) for record in paperclip_records),
+        "attributed_cost_usd": sum(record.estimate.cost_usd or 0.0 for record in paperclip_records),
+        "company_totals": totals,
+        "daily": daily,
+        "monthly": monthly,
+    }
+
+
+def build_plan_analysis(records: List[SessionRecord], config: Config) -> Dict[str, Any]:
+    span_days = _observed_span_days(records)
+    observed_cost = sum(record.estimate.cost_usd or 0.0 for record in records)
+    projected = observed_cost / span_days * config.projection_days if span_days else 0.0
+    plans = dict(config.plan_prices_usd)
+    if config.monthly_plan_price_usd is not None:
+        plans.setdefault("configured_monthly_plan", config.monthly_plan_price_usd)
+    rows = []
+    for name, price in sorted(plans.items(), key=lambda item: item[1]):
+        ratio = projected / price if price else None
+        rows.append(
+            {
+                "plan": name,
+                "monthly_price_usd": price,
+                "projected_rate_card_cost_usd": projected,
+                "projected_vs_price_percent": ratio * 100 if ratio is not None else None,
+                "delta_usd": projected - price,
+                "note": "replacement_cost_above_plan_price" if projected > price else "replacement_cost_below_plan_price",
+            }
+        )
+    return {
+        "projection_days": config.projection_days,
+        "observed_span_days": span_days,
+        "observed_cost_usd": observed_cost,
+        "projected_cost_usd": projected,
+        "monthly_plan_price_usd": config.monthly_plan_price_usd,
+        "plans": rows,
+        "confidence_note": "Projected from local observed rate-card replacement cost. This compares value, not official subscription quota or invoice spend.",
+    }
+
+
 def reconcile_codexbar(records: List[SessionRecord], cost_usage: Optional[Dict[str, object]]) -> List[Dict[str, object]]:
     if not cost_usage:
         return []
@@ -151,6 +199,128 @@ def reconcile_codexbar(records: List[SessionRecord], cost_usage: Optional[Dict[s
                 }
             )
     return sorted(rows, key=lambda row: abs((row.get("codexbar_tokens") or 0) - (row.get("local_tokens") or 0)), reverse=True)
+
+
+def _period_rows(records: List[SessionRecord], period: str) -> List[Dict[str, Any]]:
+    buckets: Dict[Tuple[str, str], Dict[str, Any]] = {}
+    for record in records:
+        key = _period_key(record.start_time, period)
+        company = record.paperclip_company.label
+        bucket = buckets.setdefault(
+            (key, company),
+            {
+                "period": key,
+                "company": company,
+                "sessions": 0,
+                "input_tokens": 0,
+                "cached_input_tokens": 0,
+                "output_tokens": 0,
+                "total_tokens": 0,
+                "estimated_cost_usd": 0.0,
+                "estimated_credits": 0.0,
+                "top_staff": Counter(),
+                "top_projects": Counter(),
+                "models": Counter(),
+                "outcomes": Counter(),
+            },
+        )
+        _add_record_to_bucket(bucket, record)
+    return [_finalize_counter_bucket(bucket) for bucket in sorted(buckets.values(), key=lambda row: (str(row["period"]), -float(row["estimated_cost_usd"]), str(row["company"])))]
+
+
+def _company_totals(records: List[SessionRecord], projection_days: int) -> List[Dict[str, Any]]:
+    buckets: Dict[str, Dict[str, Any]] = {}
+    dates_by_company: Dict[str, set[str]] = defaultdict(set)
+    for record in records:
+        company = record.paperclip_company.label
+        bucket = buckets.setdefault(
+            company,
+            {
+                "company": company,
+                "sessions": 0,
+                "input_tokens": 0,
+                "cached_input_tokens": 0,
+                "output_tokens": 0,
+                "total_tokens": 0,
+                "estimated_cost_usd": 0.0,
+                "estimated_credits": 0.0,
+                "top_staff": Counter(),
+                "top_projects": Counter(),
+                "models": Counter(),
+                "outcomes": Counter(),
+                "first_day": "unknown",
+                "last_day": "unknown",
+                "active_days": 0,
+                "observed_span_days": 1,
+                "avg_daily_cost_usd": 0.0,
+                "active_day_avg_cost_usd": 0.0,
+                "projected_cost_usd": 0.0,
+            },
+        )
+        _add_record_to_bucket(bucket, record)
+        day = day_key(record.start_time)
+        if day != "unknown":
+            dates_by_company[company].add(day)
+    rows: List[Dict[str, Any]] = []
+    for company, bucket in buckets.items():
+        dates = sorted(dates_by_company.get(company, set()))
+        active_days = len(dates)
+        span_days = _date_span_days(dates) if dates else 1
+        cost = float(bucket["estimated_cost_usd"])
+        bucket["first_day"] = dates[0] if dates else "unknown"
+        bucket["last_day"] = dates[-1] if dates else "unknown"
+        bucket["active_days"] = active_days
+        bucket["observed_span_days"] = span_days
+        bucket["avg_daily_cost_usd"] = cost / span_days if span_days else 0.0
+        bucket["active_day_avg_cost_usd"] = cost / active_days if active_days else 0.0
+        bucket["projected_cost_usd"] = (cost / span_days * projection_days) if span_days else 0.0
+        rows.append(_finalize_counter_bucket(bucket))
+    return sorted(rows, key=lambda row: float(row["estimated_cost_usd"]), reverse=True)
+
+
+def _add_record_to_bucket(bucket: Dict[str, Any], record: SessionRecord) -> None:
+    bucket["sessions"] = int(bucket["sessions"]) + 1
+    for token_key in ["input_tokens", "cached_input_tokens", "output_tokens", "total_tokens"]:
+        bucket[token_key] = int(bucket[token_key]) + record.usage.get(token_key, 0)
+    bucket["estimated_cost_usd"] = float(bucket["estimated_cost_usd"]) + (record.estimate.cost_usd or 0.0)
+    bucket["estimated_credits"] = float(bucket["estimated_credits"]) + (record.estimate.credits or 0.0)
+    bucket["top_staff"][record.paperclip_staff.label] += 1
+    bucket["top_projects"][record.paperclip_project.label] += 1
+    bucket["models"][record.model or "unknown"] += 1
+    bucket["outcomes"][record.outcome.label] += 1
+
+
+def _finalize_counter_bucket(bucket: Dict[str, Any]) -> Dict[str, Any]:
+    result = dict(bucket)
+    for key in ["top_staff", "top_projects", "models", "outcomes"]:
+        value = result.get(key)
+        if isinstance(value, Counter):
+            result[key] = dict(value.most_common(5))
+    return result
+
+
+def _period_key(value: Optional[str], period: str) -> str:
+    parsed = iso_to_datetime(value)
+    if not parsed:
+        return "unknown"
+    if period == "month":
+        return parsed.strftime("%Y-%m")
+    return parsed.date().isoformat()
+
+
+def _observed_span_days(records: List[SessionRecord]) -> int:
+    dates = sorted({day_key(record.start_time) for record in records if day_key(record.start_time) != "unknown"})
+    return _date_span_days(dates) if dates else 1
+
+
+def _date_span_days(dates: List[str]) -> int:
+    if not dates:
+        return 1
+    first = iso_to_datetime(dates[0] + "T00:00:00")
+    last = iso_to_datetime(dates[-1] + "T00:00:00")
+    if not first or not last:
+        return 1
+    return max(1, (last.date() - first.date()).days + 1)
 
 
 def _key(record: SessionRecord, key: str) -> str:

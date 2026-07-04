@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import plistlib
 import shutil
 import subprocess
@@ -31,6 +32,7 @@ def collect_codexbar(enabled: bool = True, timeout: int = 30) -> CodexBarTelemet
     telemetry.history_path = _existing_path(CODEXBAR_HISTORY)
     telemetry.cost_cache_paths = _glob_existing(CODEXBAR_COST_DIR, "*.json")
     telemetry.pricing_cache_paths = _glob_existing(CODEXBAR_PRICING_DIR, "*.json")
+    _merge_collected_codexbar(telemetry, os.environ.get("CODEXBAR_COLLECTED_ROOT"))
     telemetry.available = bool(telemetry.cli_path or telemetry.cost_cache_paths or telemetry.history_path)
 
     if telemetry.cli_path:
@@ -62,6 +64,37 @@ def _glob_existing(root: str, pattern: str) -> List[str]:
     if not expanded.exists():
         return []
     return [str(path) for path in sorted(expanded.glob(pattern), key=lambda p: p.stat().st_mtime, reverse=True)]
+
+
+def _merge_collected_codexbar(telemetry: CodexBarTelemetry, root: Optional[str]) -> None:
+    if not root:
+        return
+    expanded = Path(root).expanduser()
+    if not expanded.exists():
+        return
+    paths = [path for path in expanded.rglob("*.json") if "/codexbar/" in str(path)]
+    histories = sorted(
+        [path for path in paths if path.name == "codex.json"],
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    if histories and not telemetry.history_path:
+        telemetry.history_path = str(histories[0])
+    cost_paths = [str(path) for path in paths if path.name.startswith(("codex-v", "pi-sessions-v"))]
+    pricing_paths = [str(path) for path in paths if path.name.startswith("models-")]
+    telemetry.cost_cache_paths = _dedupe_paths(telemetry.cost_cache_paths + sorted(cost_paths, reverse=True))
+    telemetry.pricing_cache_paths = _dedupe_paths(telemetry.pricing_cache_paths + sorted(pricing_paths, reverse=True))
+
+
+def _dedupe_paths(paths: List[str]) -> List[str]:
+    seen = set()
+    result = []
+    for path in paths:
+        if path in seen:
+            continue
+        seen.add(path)
+        result.append(path)
+    return result
 
 
 def _app_version() -> Optional[str]:
@@ -326,4 +359,3 @@ def _int(value: Any) -> int:
 
 def _float(value: Any) -> Optional[float]:
     return float(value) if isinstance(value, (int, float)) else None
-

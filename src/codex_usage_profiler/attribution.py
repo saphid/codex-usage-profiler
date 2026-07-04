@@ -18,7 +18,7 @@ def attribute_sessions(records: list[SessionRecord], config: Config) -> None:
 def attribute_client(record: SessionRecord, config: Config) -> Attribution:
     haystack = " ".join(
         value or ""
-        for value in [record.originator, record.source, record.thread_source, record.cwd, record.path]
+        for value in [record.originator, record.source, record.thread_source, record.cwd, record.path, record.source_path]
     ).lower()
     for pattern, label in config.client_aliases.items():
         if pattern.lower() in haystack:
@@ -31,13 +31,23 @@ def attribute_client(record: SessionRecord, config: Config) -> Attribution:
         return Attribution("Codex exec", "medium", ["originator/source=codex_exec"])
     if "cursor" in haystack:
         return Attribution("Cursor", "medium", ["cursor signal"])
+    if "/claude/" in haystack or "/.claude/" in haystack or "claude" in haystack:
+        return Attribution("Claude Code", "medium", ["claude path/signal"])
     if "/.pi/" in haystack or "pi coding" in haystack:
         return Attribution("Pi Coding Agent", "medium", ["pi path/signal"])
+    if "/t3chat/" in haystack or "t3chat" in haystack or "t3 chat" in haystack:
+        return Attribution("T3Chat", "medium", ["t3chat path/signal"])
+    if "/kimi/" in haystack or "kimi" in haystack:
+        return Attribution("Kimi", "medium", ["kimi path/signal"])
+    if "/droid/" in haystack or "droid" in haystack:
+        return Attribution("droid", "medium", ["droid path/signal"])
+    if "/opencode/" in haystack or "opencode" in haystack or "open-code" in haystack:
+        return Attribution("OpenCode", "medium", ["opencode path/signal"])
     return Attribution("unknown", "low", ["no known client signal"])
 
 
 def attribute_project(record: SessionRecord, config: Config) -> Attribution:
-    candidates = [record.cwd] + record.workspace_roots + [record.path]
+    candidates = [record.cwd] + record.workspace_roots + [record.source_path, record.path]
     for value in candidates:
         if not value:
             continue
@@ -61,6 +71,9 @@ def _project_from_path(value: str) -> Optional[str]:
     match = re.search(r"/projects/([^/]+)", expanded)
     if match:
         return match.group(1)
+    match = re.search(r"/collected-sessions/([^/]+)/([^/]+)/", expanded)
+    if match:
+        return f"{match.group(1)}:{match.group(2)}"
     path = Path(expanded)
     if path.name and path.name not in {".codex", "sessions", "archived_sessions"}:
         return path.name
@@ -83,4 +96,3 @@ def attribute_task(record: SessionRecord, config: Config) -> Attribution:
     if record.path:
         return Attribution(f"session:{Path(record.path).stem}", "low", ["session filename"])
     return Attribution("unknown", "low", ["no task signal"])
-

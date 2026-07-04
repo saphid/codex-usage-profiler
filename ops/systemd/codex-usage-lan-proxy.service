@@ -1,0 +1,13 @@
+[Unit]
+Description=Rootless codex-usage.lan high-port proxy to LXSO1
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/services/codex-usage-profiler
+ExecStart=/usr/bin/env python3 %h/services/codex-usage-profiler/ops/bin/tcp_proxy.py --listen-host 0.0.0.0 --listen-port 8775 --target-host 192.168.1.109 --target-port 8775
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

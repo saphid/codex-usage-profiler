@@ -36,6 +36,9 @@ class Estimate:
 class SessionRecord:
     session_id: str
     path: str
+    source_path: Optional[str] = None
+    collector: Optional[str] = None
+    collector_tool: Optional[str] = None
     start_time: Optional[str] = None
     end_time: Optional[str] = None
     cwd: Optional[str] = None
@@ -74,6 +77,9 @@ class SessionRecord:
         data: Dict[str, Any] = {
             "session_id": self.session_id,
             "path": self.path,
+            "source_path": self.source_path,
+            "collector": self.collector,
+            "collector_tool": self.collector_tool,
             "start_time": self.start_time,
             "end_time": self.end_time,
             "cwd": self.cwd,

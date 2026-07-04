@@ -55,6 +55,12 @@ The dashboard SHALL visualize usage through an hourly timeline, day/hour heatmap
 - **AND WHEN** the user clicks the active item again
 - **THEN** the dashboard clears only that item's filter and returns the affected panel toward its default scope without clearing unrelated filters
 
+#### Scenario: Card-local reset
+- **WHEN** a visualization panel applies or reflects a local selection such as a flow selection, time brush, company/day selection, heatmap cell, review candidate, coverage bucket, or projection filter
+- **THEN** that panel shows an enabled reset control
+- **AND WHEN** the user activates the reset control
+- **THEN** the dashboard clears that panel's local selection, updates the permalink, and disables the reset control again
+
 ### Requirement: Session Table And Evidence Drawer
 The dashboard SHALL provide a sortable compact session table and a session evidence drawer showing attribution, token/rate-card cost estimates, outcome, review pattern, edits, tests, command labels, and linked identifiers when available.
 
@@ -75,6 +81,11 @@ The dashboard SHALL provide keyboard-accessible controls, visible focus states, 
 #### Scenario: Keyboard operation
 - **WHEN** the user navigates the page with the keyboard
 - **THEN** interactive controls, table rows, exports, and the evidence drawer are reachable and labelled
+
+#### Scenario: No unintended horizontal overflow
+- **WHEN** the dashboard is viewed with both sidebars open at desktop widths or on a narrow mobile viewport
+- **THEN** top-level regions, panel headers, heatmap, coverage, and flow panels fit within the viewport
+- **AND** only deliberate scroll containers such as the session table may scroll horizontally
 
 ### Requirement: Mockup Validation
 The implementation SHALL preserve the core structure of the final imagegen mockup: filter rail, KPI strip, main graph grid, session table, and evidence drawer.

@@ -151,7 +151,14 @@ h3 {
   display: flex;
   align-items: center;
   gap: 10px;
-  min-width: 455px;
+  flex: 0 1 520px;
+  min-width: 0;
+}
+
+.brand h1 {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .brand-mark {
@@ -176,6 +183,9 @@ h3 {
   background: rgba(98, 200, 97, 0.18);
   color: #bbf3b8;
   white-space: nowrap;
+  max-width: 210px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .source-button {
@@ -325,6 +335,38 @@ body.filters-hidden .show-filters {
   justify-content: space-between;
   gap: 12px;
   min-height: 34px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.panel-head > * {
+  min-width: 0;
+}
+
+.panel-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.card-reset {
+  min-height: 30px;
+  padding: 0 8px;
+  color: #b8dfff;
+  background: rgba(70, 169, 255, 0.08);
+}
+
+.card-reset:disabled {
+  opacity: 0.42;
+  cursor: default;
+}
+
+.card-reset.active {
+  border-color: var(--focus);
+  background: rgba(70, 169, 255, 0.18);
 }
 
 .filter-form {
@@ -604,6 +646,8 @@ body.filters-hidden .app-shell {
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
+  flex-wrap: wrap;
 }
 
 .chart-actions button {
@@ -757,6 +801,12 @@ body.filters-hidden .app-shell {
 .flow-sankey .flow-node span {
   font-size: 10px;
   line-height: 1.15;
+}
+
+.flow-sankey .flow-node strong,
+.flow-sankey .flow-node span {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .flow-has-highlight .flow-link,
@@ -931,10 +981,140 @@ body.filters-hidden .app-shell {
   background: #7f8b93;
 }
 
+.company-spend {
+  display: grid;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.company-spend-top {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.company-spend-top button {
+  position: relative;
+  display: grid;
+  gap: 4px;
+  min-height: 74px;
+  padding: 8px;
+  overflow: hidden;
+  text-align: left;
+  background: #0b161e;
+}
+
+.company-spend-top button::before {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: var(--bar, 0%);
+  background: linear-gradient(180deg, rgba(70, 169, 255, 0.08), rgba(56, 216, 232, 0.28));
+}
+
+.company-spend-top strong,
+.company-spend-top span {
+  position: relative;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.company-spend-top span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.company-spend-top button.active {
+  border-color: var(--focus);
+}
+
+.company-day-bars {
+  display: flex;
+  align-items: end;
+  gap: 4px;
+  min-height: 116px;
+  padding: 10px 10px 22px;
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+  background:
+    linear-gradient(180deg, transparent 49%, rgba(255, 255, 255, 0.05) 49% 50%, transparent 50%),
+    #071119;
+}
+
+.company-day {
+  position: relative;
+  display: grid;
+  align-items: end;
+  justify-items: center;
+  flex: 1 1 26px;
+  min-width: 24px;
+  height: 92px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.company-day.active {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.day-stack {
+  display: flex;
+  flex-direction: column-reverse;
+  width: 100%;
+  height: var(--height, 3%);
+  min-height: 3px;
+  border-radius: 3px 3px 0 0;
+  overflow: hidden;
+  background: #1c2e3d;
+}
+
+.day-label {
+  position: absolute;
+  transform: translateY(17px);
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.company-segment {
+  min-height: 1px;
+}
+
+.seg-0 {
+  background: var(--blue);
+}
+
+.seg-1 {
+  background: var(--green);
+}
+
+.seg-2 {
+  background: var(--yellow);
+}
+
+.seg-3 {
+  background: var(--violet);
+}
+
+.seg-4 {
+  background: var(--cyan);
+}
+
+.seg-5 {
+  background: var(--red);
+}
+
+.company-plan-note {
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .heatmap {
   display: grid;
-  grid-template-columns: 28px repeat(24, minmax(7px, 1fr));
-  gap: 3px;
+  grid-template-columns: 24px repeat(24, minmax(5px, 1fr));
+  gap: 2px;
   margin-top: 8px;
   align-items: stretch;
 }
@@ -1029,6 +1209,7 @@ body.filters-hidden .app-shell {
   grid-template-columns: 128px 1fr;
   gap: 12px;
   align-items: center;
+  min-width: 0;
 }
 
 .donut {
@@ -1071,6 +1252,14 @@ body.filters-hidden .app-shell {
   justify-content: space-between;
   gap: 10px;
   color: var(--muted);
+  min-width: 0;
+}
+
+.coverage-list span,
+.coverage-list strong,
+.projection span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .coverage-list button {
@@ -1483,7 +1672,7 @@ body.filters-hidden.drawer-hidden .app-shell {
   color: var(--muted);
 }
 
-@media (max-width: 1380px) {
+@media (max-width: 1500px) {
   .kpi-strip {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -1502,6 +1691,12 @@ body.filters-hidden.drawer-hidden .app-shell {
 
   .main-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1380px) {
+  .flow-sankey {
+    height: 320px;
   }
 }
 
@@ -1527,6 +1722,7 @@ body.filters-hidden.drawer-hidden .app-shell {
 
   .brand {
     min-width: 0;
+    flex-wrap: wrap;
   }
 
   .command-row {
@@ -1567,11 +1763,33 @@ body.filters-hidden.drawer-hidden .app-shell {
   .flow-grid {
     grid-template-columns: 1fr 1fr;
   }
+
+  .company-spend-top {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 560px) {
   body {
     font-size: 12px;
+  }
+
+  h1 {
+    white-space: normal;
+    line-height: 1.15;
+  }
+
+  .source-pill,
+  .live-status {
+    max-width: 100%;
+    white-space: normal;
+  }
+
+  .panel-head,
+  .chart-actions,
+  .panel-actions {
+    align-items: flex-start;
+    justify-content: flex-start;
   }
 
   .kpi-strip {
@@ -1586,6 +1804,19 @@ body.filters-hidden.drawer-hidden .app-shell {
   .flow-grid,
   .coverage {
     grid-template-columns: 1fr;
+  }
+
+  .company-spend-top {
+    grid-template-columns: 1fr;
+  }
+
+  .company-day-bars {
+    overflow-x: auto;
+    justify-content: flex-start;
+  }
+
+  .company-day {
+    flex: 0 0 26px;
   }
 
   .timeline {
