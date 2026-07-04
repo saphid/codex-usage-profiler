@@ -279,6 +279,8 @@ assert.deepStrictEqual(richDecoded.visibleColumns, ['start_time', 'session_id', 
 """
         env = dict(os.environ)
         env["CUP_REPORT"] = json.dumps(sample_report())
+        # Hour/day filters work in local time; expectations assume UTC+10.
+        env["TZ"] = "Australia/Sydney"
         proc = subprocess.run(["node", "-e", script], text=True, capture_output=True, env=env, check=False)
         self.assertEqual(proc.returncode, 0, proc.stderr)
 
