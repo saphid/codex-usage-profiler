@@ -59,11 +59,19 @@ def apply_paperclip_attribution(records: List[SessionRecord], index: PaperclipIn
         agent = index.agents.get(agent_id or "") if agent_id else None
         if not company_id and agent:
             company_id = agent.company_id
+        has_paperclip_context = bool(
+            company_id
+            or agent_id
+            or project_id
+            or _feature(record, "company")
+            or _feature(record, "staff")
+            or _feature(record, "project")
+        )
 
         company_label = _feature(record, "company") or (index.companies.get(company_id or "") if company_id else None)
         project_label = _feature(record, "project") or (index.projects.get(project_id or "") if project_id else None)
         staff_label = _feature(record, "staff") or _feature(record, "submitted_by") or _feature(record, "agent") or (agent.staff_label if agent else None)
-        paperclip_task = _paperclip_task_label(record)
+        paperclip_task = _paperclip_task_label(record) if has_paperclip_context else None
 
         if company_label:
             record.paperclip_company = Attribution(company_label, "high", [f"paperclip.company_id:{company_id}"] if company_id else ["first_request.company"])
@@ -387,12 +395,17 @@ def _paperclip_task_label(record: SessionRecord) -> Optional[str]:
     if features.get("task"):
         return features["task"]
     path_blob = "\n".join(value for value in [record.cwd or "", record.source_path or "", record.path, *record.workspace_roots] if value)
+    blocked_prefixes = {"ROLLOUT", "SESSION", "GPT", "HTTP"}
     match = re.search(r"\b([A-Z]{2,10}-\d+)\b", path_blob, re.IGNORECASE)
     if match:
-        return match.group(1).upper()
+        value = match.group(1).upper()
+        if value.split("-", 1)[0] not in blocked_prefixes:
+            return value
     match = re.search(r"\b([a-z]{2,10})[-_](\d{1,6})\b", path_blob, re.IGNORECASE)
     if match:
-        return f"{match.group(1).upper()}-{match.group(2)}"
+        prefix = match.group(1).upper()
+        if prefix not in blocked_prefixes:
+            return f"{prefix}-{match.group(2)}"
     return None
 
 
