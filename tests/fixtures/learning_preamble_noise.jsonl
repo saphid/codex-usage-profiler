@@ -1,0 +1,2 @@
+{"type":"session_meta","timestamp":"2026-06-30T06:00:00Z","payload":{"session_id":"learn-preamble-noise","source":"vscode","originator":"Codex Desktop","thread_source":"user","cwd":"/Users/saphid/Documents/demo"}}
+{"type":"response_item","timestamp":"2026-06-30T06:00:01Z","payload":{"item":{"type":"message","role":"user","content":[{"type":"input_text","text":"# AGENTS.md instructions\\n<INSTRUCTIONS>Talk about cookies, bearer auth, curl, fetch, launchd, LXS01, and plist here.</INSTRUCTIONS>\\n<environment_context><cwd>/Users/saphid</cwd></environment_context>"}]}}}

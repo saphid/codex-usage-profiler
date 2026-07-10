@@ -19,6 +19,8 @@ codex-usage-dashboard = "codex_usage_profiler.dashboard:main"
 cup-dashboard = "codex_usage_profiler.dashboard:main"
 codex-usage-collector = "codex_usage_profiler.collector:main"
 cup-collector = "codex_usage_profiler.collector:main"
+codex-lesson-miner = "codex_usage_profiler.learning:main"
+clm = "codex_usage_profiler.learning:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

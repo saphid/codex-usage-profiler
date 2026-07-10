@@ -1,0 +1,3 @@
+{"type":"session_meta","timestamp":"2026-06-30T08:01:00Z","payload":{"session_id":"learn-duplicate","source":"vscode","originator":"Codex Desktop","thread_source":"user","cwd":"/Users/saphid/Documents/demo"}}
+{"type":"event_msg","timestamp":"2026-06-30T08:01:01Z","payload":{"type":"agent_message","message":"Found issue: need cookie capture and request manifest before replay."}}
+{"type":"response_item","timestamp":"2026-06-30T08:01:02Z","payload":{"item":{"type":"function_call","name":"functions.exec_command","arguments":"{\"cmd\":\"curl -H 'Cookie: sid=abc' https://example.test/history?token=secret\"}"},"info":{"total_token_usage":{"input_tokens":2000,"cached_input_tokens":200,"output_tokens":200,"reasoning_output_tokens":0,"total_tokens":2200}}}}

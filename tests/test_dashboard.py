@@ -160,6 +160,20 @@ const options = dashboard.buildOptions(report);
 assert(options.staff.includes('Alice'));
 assert(options.clients.includes('Cursor'));
 
+const stressReport = Object.assign({{}}, report, {{ sessions: [] }});
+for (let i = 0; i < 503; i++) {{
+  const copy = JSON.parse(JSON.stringify(report.sessions[0]));
+  copy.session_id = 'task-' + i;
+  copy.paperclip_task = {{ label: 'TASK-' + i, confidence: 'high', evidence: ['fixture'] }};
+  copy.task = {{ label: 'TASK-' + i, confidence: 'high', evidence: ['fixture'] }};
+  copy.usage.total_tokens = i + 1;
+  stressReport.sessions.push(copy);
+}}
+const taskOptions = dashboard.buildOptions(stressReport).tasks;
+assert.strictEqual(taskOptions.length, 500);
+assert.strictEqual(taskOptions[0], 'TASK-502');
+assert(!taskOptions.includes('TASK-0'));
+
 let state = dashboard.createState();
 state.filters.staff = ['Alice'];
 state.filters.preset = 'overnight';

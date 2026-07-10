@@ -1417,6 +1417,7 @@ tbody tr.selected {
   height: calc(100vh - 100px);
   padding: 12px;
   overflow: auto;
+  overflow-x: hidden;
 }
 
 .evidence-drawer.drawer-closed {
@@ -1514,6 +1515,7 @@ body.filters-hidden.drawer-hidden .app-shell {
   display: flex;
   gap: 4px;
   margin-top: 2px;
+  flex-wrap: wrap;
 }
 
 .drawer-tabs button {
@@ -1537,7 +1539,7 @@ body.filters-hidden.drawer-hidden .app-shell {
 
 .evidence-action {
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, auto) auto;
   gap: 8px;
   align-items: center;
   padding: 9px;
@@ -1558,6 +1560,13 @@ body.filters-hidden.drawer-hidden .app-shell {
 }
 
 .detail-row span:last-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.evidence-action span,
+.evidence-action strong,
+.evidence-box li {
   min-width: 0;
   overflow-wrap: anywhere;
 }

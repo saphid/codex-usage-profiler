@@ -28,6 +28,7 @@ from codex_usage_profiler.codexbar import (
 )
 from codex_usage_profiler.config import Config
 from codex_usage_profiler.ingest import parse_logs
+from codex_usage_profiler.models import SessionRecord
 from codex_usage_profiler.paperclip import apply_paperclip_attribution, build_paperclip_index
 from codex_usage_profiler.quota import apply_estimates, build_rate_map
 from codex_usage_profiler.reporting import render_json
@@ -194,6 +195,38 @@ class ProfilerTests(unittest.TestCase):
         self.assertEqual(records[0].paperclip_staff.label, "Security Engineer")
         self.assertEqual(records[0].paperclip_project.label, "Start2Scale")
         self.assertEqual(records[0].paperclip_task.label, "STA-42")
+
+    def test_paperclip_task_labels_require_paperclip_context(self) -> None:
+        record = SessionRecord(
+            session_id="generic-http-debug",
+            path="/tmp/HTTP-404/session.jsonl",
+            cwd="/tmp/HTTP-404",
+        )
+        apply_paperclip_attribution([record], build_paperclip_index(Config(paperclip_root="/missing")))
+        self.assertEqual(record.paperclip_task.label, "unknown")
+        self.assertEqual(record.task.label, "unknown")
+
+    def test_paperclip_task_labels_skip_infrastructure_prefixes(self) -> None:
+        record = SessionRecord(
+            session_id="paperclip-http-debug",
+            path="/tmp/HTTP-404/session.jsonl",
+            cwd="/tmp/HTTP-404",
+            first_request_features={"company": "Agent Tooling"},
+        )
+        apply_paperclip_attribution([record], build_paperclip_index(Config(paperclip_root="/missing")))
+        self.assertEqual(record.paperclip_company.label, "Agent Tooling")
+        self.assertEqual(record.paperclip_task.label, "unknown")
+
+    def test_paperclip_task_labels_keep_issue_prefixes(self) -> None:
+        record = SessionRecord(
+            session_id="paperclip-issue",
+            path="/work/codex-usage-profiler/AGE-60/session.jsonl",
+            cwd="/work/codex-usage-profiler/AGE-60",
+            first_request_features={"company": "Agent Tooling"},
+        )
+        apply_paperclip_attribution([record], build_paperclip_index(Config(paperclip_root="/missing")))
+        self.assertEqual(record.paperclip_task.label, "AGE-60")
+        self.assertEqual(record.task.label, "AGE-60")
 
     def test_paperclip_company_prefix_aliases(self) -> None:
         root = FIXTURES / "paperclip" / "instances" / "default"

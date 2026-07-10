@@ -315,6 +315,22 @@
     });
   }
 
+  function topOptions(sessions, getter, limit) {
+    var map = {};
+    (sessions || []).forEach(function (session) {
+      var value = getter(session) || "unknown";
+      if (!map[value]) map[value] = { label: value, tokens: 0, sessions: 0 };
+      map[value].tokens += tokens(session);
+      map[value].sessions += 1;
+    });
+    var rows = Object.keys(map).map(function (key) { return map[key]; }).sort(function (a, b) {
+      if (a.label === "unknown") return 1;
+      if (b.label === "unknown") return -1;
+      return b.tokens - a.tokens || b.sessions - a.sessions || a.label.localeCompare(b.label);
+    });
+    return rows.slice(0, limit).map(function (row) { return row.label; });
+  }
+
   function buildOptions(report) {
     var sessions = report.sessions || [];
     return {
@@ -322,7 +338,7 @@
       projects: uniqueSorted(sessions.map(sessionProject)),
       companies: uniqueSorted(sessions.map(function (s) { return attrLabel(s.paperclip_company); })),
       staff: uniqueSorted(sessions.map(function (s) { return attrLabel(s.paperclip_staff); })),
-      tasks: uniqueSorted(sessions.map(sessionTask)),
+      tasks: topOptions(sessions, sessionTask, 500),
       models: uniqueSorted(sessions.map(function (s) { return s.model || "unknown"; })),
       outcomes: uniqueSorted(sessions.map(function (s) { return attrLabel(s.outcome); }))
     };
@@ -989,7 +1005,11 @@
     if (!select) return;
     clear(select);
     select.appendChild(el("option", { value: "" }, ["All"]));
-    values.forEach(function (value) {
+    var merged = (values || []).slice();
+    (selected || []).forEach(function (value) {
+      if (merged.indexOf(value) < 0) merged.push(value);
+    });
+    merged.forEach(function (value) {
       var option = el("option", { value: value }, [value]);
       if ((selected || []).indexOf(value) >= 0) option.selected = true;
       select.appendChild(option);
@@ -2017,7 +2037,8 @@
     report: null,
     state: createState(),
     options: null,
-    filtered: []
+    filtered: [],
+    resizeTimer: null
   };
 
   function renderApp() {
@@ -2066,6 +2087,11 @@
     });
     document.getElementById("density-select").addEventListener("change", renderApp);
     document.getElementById("reduction-select").addEventListener("change", renderApp);
+    window.addEventListener("resize", function () {
+      if (!app.report) return;
+      clearTimeout(app.resizeTimer);
+      app.resizeTimer = setTimeout(renderApp, 50);
+    });
     Array.prototype.slice.call(document.querySelectorAll(".card-reset[data-reset-card]")).forEach(function (button) {
       button.addEventListener("click", function () {
         if (button.disabled) return;
@@ -2180,13 +2206,6 @@
       document.getElementById("evidence-drawer").classList.add("drawer-closed");
       document.body.classList.add("drawer-hidden");
       renderApp();
-    });
-    var resizeTimer = null;
-    window.addEventListener("resize", function () {
-      clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(function () {
-        renderApp();
-      }, 60);
     });
   }
 
