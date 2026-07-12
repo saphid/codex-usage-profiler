@@ -181,17 +181,22 @@ async function assertFlowGeometry(page, label) {
   assert(result.linkCount > 10, `${label}: expected many flow links`);
 }
 
+async function waitForQueryParam(page, queryKey, present, label) {
+  const ready = await page.waitForFunction(
+    ({ key, expected }) => new URL(window.location.href).searchParams.has(key) === expected,
+    { key: queryKey, expected: present },
+    { timeout: 5000 }
+  ).catch(() => false);
+  assert(ready, `${label} did not ${present ? "set" : "clear"} ${queryKey}`);
+}
+
 async function clickAndExpectFilter(page, selector, expectedQueryKey) {
   await page.locator(selector).click();
-  await page.waitForTimeout(100);
-  const params = new URL(page.url()).searchParams;
-  assert(params.has(expectedQueryKey), `${selector} did not set ${expectedQueryKey}`);
+  await waitForQueryParam(page, expectedQueryKey, true, selector);
 }
 
 async function expectNoFilter(page, queryKey, label) {
-  await page.waitForTimeout(100);
-  const params = new URL(page.url()).searchParams;
-  assert(!params.has(queryKey), `${label} did not clear ${queryKey}`);
+  await waitForQueryParam(page, queryKey, false, label);
 }
 
 async function clickCardReset(page, card, queryKey, label) {
@@ -203,12 +208,16 @@ async function clickCardReset(page, card, queryKey, label) {
 }
 
 async function assertEnabled(page, locator, label) {
-  await page.waitForTimeout(50);
+  const handle = await locator.elementHandle();
+  assert(handle, `${label} was missing`);
+  await page.waitForFunction((element) => !element.disabled, handle, { timeout: 5000 });
   assert(!(await locator.isDisabled()), `${label} was disabled`);
 }
 
 async function assertDisabled(page, locator, label) {
-  await page.waitForTimeout(50);
+  const handle = await locator.elementHandle();
+  assert(handle, `${label} was missing`);
+  await page.waitForFunction((element) => element.disabled, handle, { timeout: 5000 });
   assert(await locator.isDisabled(), `${label} was not disabled`);
 }
 
@@ -321,7 +330,7 @@ async function run() {
     });
     assert((await page.locator("#active-chips .chip").count()) >= 5, "filters did not create chips");
     await page.locator("#reset-filters").click();
-    await page.waitForTimeout(100);
+    await expectNoFilter(page, "clients", "reset filters");
 
     await page.locator(".kpi.useful").click();
     assert.equal(await page.locator("#waste-filter").inputValue(), "useful-only", "useful KPI did not filter");
@@ -338,17 +347,17 @@ async function run() {
     assert.equal(await page.locator(clientNode).getAttribute("aria-pressed"), "true", "active flow node was not marked pressed");
     await clickCardReset(page, "flow", "clients", "flow reset after node");
     await page.locator("#reset-filters").click();
-    await page.waitForTimeout(100);
+    await expectNoFilter(page, "clients", "reset filters after flow node");
     await page.locator(".flow-link").first().click({ force: true });
-    assert(new URL(page.url()).searchParams.has("sessionIds"), "flow link did not filter");
+    await waitForQueryParam(page, "sessionIds", true, "flow link");
     assert(await page.locator(".flow-link.active").count(), "active flow link was not marked");
     await clickCardReset(page, "flow", "sessionIds", "flow reset after link");
     await page.locator("#reset-filters").click();
-    await page.waitForTimeout(100);
+    await expectNoFilter(page, "sessionIds", "reset filters after flow link");
     const otherNode = page.locator('.flow-node[data-node-id="client|Other / Unknown"]');
     if (await otherNode.count()) {
       await otherNode.click();
-      assert(new URL(page.url()).searchParams.has("sessionIds"), "grouped flow node did not use exact session ids");
+      await waitForQueryParam(page, "sessionIds", true, "grouped flow node");
       assert(await page.locator('.flow-node.active[data-node-id="client|Other / Unknown"]').count(), "grouped flow node did not stay available as active");
       await page.locator('.flow-node.active[data-node-id="client|Other / Unknown"]').click();
       await expectNoFilter(page, "sessionIds", "second grouped flow node click");
@@ -363,7 +372,7 @@ async function run() {
       target.dispatchEvent(new PointerEvent("pointermove", { bubbles: true, clientX: endX, clientY: y, pointerId: 1, pointerType: "mouse" }));
       target.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, clientX: endX, clientY: y, pointerId: 1, pointerType: "mouse" }));
     }, { startX: brush.x + brush.width * 0.2, endX: brush.x + brush.width * 0.65, y: brush.y + brush.height / 2 });
-    assert(new URL(page.url()).searchParams.has("brushStartTime"), "brush drag did not set range");
+    await waitForQueryParam(page, "brushStartTime", true, "brush drag");
     await clickCardReset(page, "timeline", "brushStartTime", "timeline reset after brush");
 
     await page.locator(".legend-useful").click();
@@ -372,30 +381,30 @@ async function run() {
     await page.locator('.card-reset[data-reset-card="timeline"]').click();
     assert.equal(await page.locator(".legend-useful.inactive").count(), 0, "timeline reset did not restore legend");
     await page.locator(".hour-bar").first().click();
-    assert(new URL(page.url()).searchParams.has("brushStartTime"), "timeline hour did not filter");
+    await waitForQueryParam(page, "brushStartTime", true, "timeline hour");
     assert(await page.locator(".hour-bar.active").count(), "active timeline hour was not marked");
     await clickCardReset(page, "timeline", "brushStartTime", "timeline reset after hour");
 
     await page.locator(".company-spend-top button").first().click();
-    assert(new URL(page.url()).searchParams.has("companies"), "company tile did not filter");
+    await waitForQueryParam(page, "companies", true, "company tile");
     await clickCardReset(page, "company", "companies", "company reset after tile");
     await page.locator(".company-day").first().click();
-    assert(new URL(page.url()).searchParams.has("brushStartTime"), "company day did not filter");
+    await waitForQueryParam(page, "brushStartTime", true, "company day");
     assert(await page.locator(".company-day.active").count(), "company day was not marked active");
     await clickCardReset(page, "company", "brushStartTime", "company reset after day");
 
     await page.locator(".heat-cell").nth(20).click();
-    assert(new URL(page.url()).searchParams.has("weekdays"), "heatmap cell did not filter");
+    await waitForQueryParam(page, "weekdays", true, "heatmap cell");
     assert(await page.locator(".heat-cell.active").count(), "active heatmap cell was not marked");
     await clickCardReset(page, "heatmap", "weekdays", "heatmap reset");
     await page.locator("#reset-filters").click();
     await page.locator(".driver-row").first().click();
-    assert(new URL(page.url()).searchParams.has("wasteKind"), "waste row did not filter");
+    await waitForQueryParam(page, "wasteKind", true, "waste row");
     assert(await page.locator(".driver-row.active").count(), "active waste row was not marked");
     await clickCardReset(page, "waste", "wasteKind", "waste reset");
     await page.locator("#reset-filters").click();
     await page.locator(".coverage-list button").last().click();
-    assert(new URL(page.url()).searchParams.has("attributionCoverage"), "coverage row did not filter");
+    await waitForQueryParam(page, "attributionCoverage", true, "coverage row");
     assert(await page.locator(".coverage-list button.active").count(), "active coverage row was not marked");
     await clickCardReset(page, "coverage", "attributionCoverage", "coverage reset");
     await page.locator("#reset-filters").click();
